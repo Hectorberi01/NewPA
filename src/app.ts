@@ -36,6 +36,17 @@ const limiter = rateLimit({
   legacyHeaders: false,
 });
 
+app.use((req, res, next) => {
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp'); // si tu veux l’isolation (SharedArrayBuffer…)
+  next();
+});
+
+app.use(helmet({
+  crossOriginOpenerPolicy: { policy: 'same-origin' },
+  crossOriginEmbedderPolicy: true, // attention aux iframes/ressources externes
+}));
+
 app.use('/api/', limiter);
 //app.use('/api/auth', index);
 
@@ -47,6 +58,7 @@ app.use(cors({
   credentials: true,
   optionsSuccessStatus: 200
 }));
+app.use(cors());
 
 // ===== MIDDLEWARES GÉNÉRAUX =====
 app.use(express.json({ limit: '10mb' }));
