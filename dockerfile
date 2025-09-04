@@ -8,6 +8,10 @@ RUN npm install
 #--omit=dev 
 #--force
 
+# Build the TypeScript code
+COPY . .
+RUN npm run build
+
 # Copier uniquement les fichiers compilés
 COPY dist ./dist
 
