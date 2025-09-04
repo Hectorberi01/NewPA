@@ -1,0 +1,42 @@
+Authentication:
+POST   /api/auth/login
+POST   /api/auth/register
+POST   /api/auth/oauth/google
+POST   /api/auth/change-password
+
+Users:
+GET    /api/users/profile
+PUT    /api/users/profile
+GET    /api/users/search
+POST   /api/users/students/bulk
+
+Projects:
+GET    /api/projects/my
+POST   /api/projects
+GET    /api/projects/:id
+PUT    /api/projects/:id
+DELETE /api/projects/:id
+POST   /api/projects/:id/groups/generate
+POST   /api/projects/:id/groups/manual
+
+Groups:
+GET    /api/projects/:projectId/groups
+POST   /api/groups
+GET    /api/groups/:id
+PUT    /api/groups/:id
+DELETE /api/groups/:id
+POST   /api/groups/:id/join
+POST   /api/groups/:id/leave
+GET    /api/projects/:projectId/groups/stats
+
+Deliverables:
+POST   /api/deliverables
+PUT    /api/deliverables/:id
+POST   /api/deliverables/:id/submit
+GET    /api/deliverables/:id/submissions
+POST   /api/deliverables/:id/analyze-similarity
+
+Statistics:
+GET    /api/stats/users
+GET    /api/stats/projects
+GET    /api/stats/projects/:id

@@ -1,0 +1,88 @@
+import { Router } from 'express';
+import { AuthController } from '../controllers/auth.controller';
+import { authMiddleware } from '../middleware/auth.middleware';
+import * as validator from 'express-validator';
+import { handleValidationErrors } from '../middleware/validation.middleware';
+
+const { body } = validator;
+const router = Router();
+const authController = new AuthController();
+
+// ===== VALIDATIONS MANQUANTES =====
+const validateForgotPassword = [
+  body('email').isEmail().withMessage('Invalid email format'),
+  handleValidationErrors
+];
+
+const validateResetPassword = [
+  body('token').notEmpty().withMessage('Reset token is required'),
+  body('newPassword')
+    .isLength({ min: 8 })
+    .withMessage('New password must be at least 8 characters')
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+    .withMessage('New password must contain at least one lowercase, one uppercase and one digit'),
+  handleValidationErrors
+];
+
+const validateRefreshToken = [
+  body('refreshToken').notEmpty().withMessage('Refresh token is required'),
+  handleValidationErrors
+];
+
+const validateOAuthToken = [
+  body('token').notEmpty().withMessage('OAuth token is required'),
+  handleValidationErrors
+];
+
+// ===== ROUTES MANQUANTES À AJOUTER =====
+
+// Routes de réinitialisation de mot de passe
+router.post('/forgot-password', validateForgotPassword, 
+  authController.forgotPassword.bind(authController));
+
+router.post('/reset-password', validateResetPassword, 
+  authController.resetPassword.bind(authController));
+
+// Route de rafraîchissement de token
+router.post('/refresh', validateRefreshToken, 
+  authController.refreshToken.bind(authController));
+
+// Route OAuth Microsoft 
+router.post('/oauth/microsoft', validateOAuthToken, 
+  authController.microsoftOAuth.bind(authController));
+// Route OAuth Google
+router.post('/oauth/google', validateOAuthToken, 
+  authController.googleOAuth.bind(authController));
+
+// Routes de vérification et informations utilisateur
+router.get('/verify', authMiddleware, 
+  authController.verifyToken.bind(authController));
+
+router.get('/me', authMiddleware, 
+  authController.getCurrentUser.bind(authController));
+
+// Route de déconnexion
+router.post('/logout', authMiddleware, 
+  authController.logout.bind(authController));
+
+router.post('/login', 
+  body('email').isEmail().withMessage('Invalid email format'),
+  body('password').notEmpty().withMessage('Password is required'),
+  handleValidationErrors,
+  authController.login.bind(authController)
+);
+
+router.post('/register', 
+  body('email').isEmail().withMessage('Invalid email format'),
+  body('password')
+    .isLength({ min: 8 })
+    .withMessage('Password must be at least 8 characters')
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+    .withMessage('Password must contain at least one lowercase, one uppercase and one digit'),
+  body('firstName').notEmpty().withMessage('First name is required'),
+  body('lastName').notEmpty().withMessage('Last name is required'),
+
+  handleValidationErrors,
+  authController.registerTeacher.bind(authController)
+);
+export default router;
