@@ -1,42 +1,26 @@
-Authentication:
-POST   /api/auth/login
-POST   /api/auth/register
-POST   /api/auth/oauth/google
-POST   /api/auth/change-password
+pm2 start ecosystem.config.js --env production
+pm2 status
+pm2 logs myapp --lines 100
 
-Users:
-GET    /api/users/profile
-PUT    /api/users/profile
-GET    /api/users/search
-POST   /api/users/students/bulk
+sudo tee /etc/systemd/system/newpa.service >/dev/null <<'EOF'
+[Unit]
+Description=NewPA API (Node.js)
+After=network.target
 
-Projects:
-GET    /api/projects/my
-POST   /api/projects
-GET    /api/projects/:id
-PUT    /api/projects/:id
-DELETE /api/projects/:id
-POST   /api/projects/:id/groups/generate
-POST   /api/projects/:id/groups/manual
+[Service]
+WorkingDirectory=/srv/newpa
+ExecStart=/usr/bin/node dist/server.js
+Environment=NODE_ENV=production
+Environment=PORT=3000
+# ajoute ici tes variables (DB_URL, JWT_SECRET, GOOGLE_CLIENT_ID, etc.)
+Restart=always
+User=www-data
+Group=www-data
 
-Groups:
-GET    /api/projects/:projectId/groups
-POST   /api/groups
-GET    /api/groups/:id
-PUT    /api/groups/:id
-DELETE /api/groups/:id
-POST   /api/groups/:id/join
-POST   /api/groups/:id/leave
-GET    /api/projects/:projectId/groups/stats
+[Install]
+WantedBy=multi-user.target
+EOF
 
-Deliverables:
-POST   /api/deliverables
-PUT    /api/deliverables/:id
-POST   /api/deliverables/:id/submit
-GET    /api/deliverables/:id/submissions
-POST   /api/deliverables/:id/analyze-similarity
-
-Statistics:
-GET    /api/stats/users
-GET    /api/stats/projects
-GET    /api/stats/projects/:id
+sudo systemctl daemon-reload
+sudo systemctl enable --now newpa
+sudo systemctl status newpa --no-pager -l

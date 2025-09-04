@@ -7,6 +7,10 @@ exports.swaggerUi = exports.specs = void 0;
 const swagger_jsdoc_1 = __importDefault(require("swagger-jsdoc"));
 const swagger_ui_express_1 = __importDefault(require("swagger-ui-express"));
 exports.swaggerUi = swagger_ui_express_1.default;
+const dotenv_1 = __importDefault(require("dotenv"));
+const path_1 = __importDefault(require("path"));
+dotenv_1.default.config();
+console.log('process.env.NODE_ENV =', process.env.NODE_ENV);
 const options = {
     definition: {
         openapi: '3.0.0',
@@ -439,7 +443,15 @@ const options = {
     apis: [
         './src/controllers/*.ts',
         './src/routes/*.ts',
-        './src/entities/*.ts'
+        './src/entities/*.ts',
+        path_1.default.join(__dirname, "../routes/**/*.{js,jsx}"),
+        path_1.default.join(__dirname, "../controllers/**/*.{js,jsx}"),
+    ],
+    servers: [
+        {
+            url: process.env.NODE_ENV === 'production' ? 'https://test-projet.com:3443' : 'http://localhost:3000',
+            description: process.env.NODE_ENV === 'production' ? 'Production server' : 'Development server'
+        }
     ],
 };
 const specs = (0, swagger_jsdoc_1.default)(options);
