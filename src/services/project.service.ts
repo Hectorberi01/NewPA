@@ -1,16 +1,20 @@
-import { Repository } from 'typeorm';
+import { Repository,In,DataSource } from 'typeorm';
 import { AppDataSource } from '../database/data-source';
 import { Project,Group,User,Promotion } from '../entities/Entities';
 
 import { EmailService } from '../utils/email.service';
-
+export interface GroupSavePayload {
+  groups: { id: number; memberIds: number[] }[];
+  unassignedIds: number[];
+}
+type SaveResult = { updatedGroups: number; affectedLinks: number };
 export class ProjectService {
   private projectRepository: Repository<Project>;
   private groupRepository: Repository<Group>;
   private userRepository: Repository<User>;
   private promotionRepository: Repository<Promotion>;
   private emailService: EmailService;
-
+  private ds = AppDataSource;
   constructor() {
     this.projectRepository = AppDataSource.getRepository(Project);
     this.groupRepository = AppDataSource.getRepository(Group);
@@ -71,7 +75,7 @@ export class ProjectService {
   async getProjectsByTeacher(teacherId: number): Promise<Project[]> {
     return await this.projectRepository.find({
       where: { teacher: { id: teacherId } },
-      relations: ['promotion', 'groups', 'deliverables'],
+      relations: ['promotion', 'promotion.students', 'groups', 'deliverables'],
       order: { createdAt: 'DESC' }
     });
   }
@@ -253,5 +257,139 @@ export class ProjectService {
     );
 
     await Promise.allSettled(emailPromises);
+  }
+
+  async saveGrouping(projectId: number, payload: GroupSavePayload): Promise<SaveResult> {
+    const qr = this.ds.createQueryRunner();
+    await qr.connect();
+    await qr.startTransaction();
+
+    try {
+      // 1) Charger projet + groupes + membres + promo/étudiants (contrôle appartenance)
+      const project = await qr.manager.getRepository(Project).findOne({
+        where: { id: projectId },
+        relations: [
+          "groups",
+          "groups.members",
+          "promotion",
+          "promotion.students",
+        ],
+      });
+
+      if (!project) {
+        const err: any = new Error("Projet introuvable");
+        err.code = "NOT_FOUND";
+        throw err;
+      }
+
+      const groupsById = new Map<number, Group>();
+      project.groups.forEach((g) => groupsById.set(g.id, g));
+
+      // 2) Validation de base payload
+      const payloadGroupIds = new Set(payload.groups.map((g) => g.id));
+      // (optionnel) s'assurer que tous les groupes du payload appartiennent au projet
+      const invalidGroupIds = [...payloadGroupIds].filter((id) => !groupsById.has(id));
+      if (invalidGroupIds.length > 0) {
+        const err: any = new Error("Certains groupes ne font pas partie du projet");
+        err.code = "VALIDATION_ERROR";
+        err.details = { invalidGroupIds };
+        throw err;
+      }
+
+      // 3) Vérifier l'appartenance des étudiants à la promotion du projet
+      const allowedStudentIds = new Set<number>((project.promotion?.students ?? []).map((s) => s.id));
+      const requestedIds = new Set<number>([
+        ...payload.unassignedIds,
+        ...payload.groups.flatMap((g) => g.memberIds),
+      ]);
+      const outside = [...requestedIds].filter((id) => !allowedStudentIds.has(id));
+      if (outside.length > 0) {
+        const err: any = new Error("Des étudiants ne sont pas dans la promotion du projet");
+        err.code = "VALIDATION_ERROR";
+        err.details = { studentIdsNotInPromotion: outside };
+        throw err;
+      }
+
+      // 4) Unicité : un étudiant ne peut être dans deux groupes à la fois
+      const allAssigned = payload.groups.flatMap((g) => g.memberIds);
+      const dupCheck = new Map<number, number>();
+      const duplicates: number[] = [];
+      allAssigned.forEach((sid) => {
+        dupCheck.set(sid, (dupCheck.get(sid) ?? 0) + 1);
+      });
+      dupCheck.forEach((count, sid) => count > 1 && duplicates.push(sid));
+      if (duplicates.length) {
+        const err: any = new Error("Un étudiant est assigné à plusieurs groupes");
+        err.code = "VALIDATION_ERROR";
+        err.details = { duplicates };
+        throw err;
+      }
+
+      // 5) Capacité : chaque groupe <= capacity
+      const overCapacity = payload.groups
+        .map((g) => ({ g, entity: groupsById.get(g.id)! }))
+        .filter(({ g, entity }) => g.memberIds.length > project.maxGroupSize!)
+        .map(({ g, entity }) => ({ groupId: g.id, capacity: project.maxGroupSize!, requested: g.memberIds.length }));
+
+      if (overCapacity.length) {
+        const err: any = new Error("Capacité de groupe dépassée");
+        err.code = "CAPACITY_EXCEEDED";
+        err.details = { overCapacity };
+        throw err;
+      }
+
+      // 6) Construire l'état cible + calculer add/remove par groupe
+      const userRepo = qr.manager.getRepository(User);
+
+      // Charger tous les utilisateurs impliqués (optimisation requête)
+      const allUserIds = [...requestedIds];
+      const users = allUserIds.length
+        ? await userRepo.find({ where: { id: In(allUserIds) } })
+        : [];
+      const usersById = new Map(users.map((u) => [u.id, u]));
+
+      let affectedLinks = 0;
+
+      // Pour chaque groupe du projet, on aligne l'état avec le payload
+      for (const g of project.groups) {
+        const desired = payload.groups.find((x) => x.id === g.id)?.memberIds ?? [];
+        const current = (g.members ?? []).map((m) => m.id);
+
+        const toAdd = desired.filter((id) => !current.includes(id));
+        const toRemove = current.filter((id) => !desired.includes(id));
+
+        if (toAdd.length === 0 && toRemove.length === 0) continue;
+
+        // Vérif finale (au cas où) : pas d'IDs inconnus
+        const validAdd = toAdd.filter((id) => usersById.has(id));
+
+        // Mettre à jour la relation ManyToMany (clear+add partiel)
+        if (toRemove.length) {
+          await qr.manager
+            .createQueryBuilder()
+            .relation(Group, "members")
+            .of(g.id)
+            .remove(toRemove);
+          affectedLinks += toRemove.length;
+        }
+        if (validAdd.length) {
+          const addUsers = validAdd.map((id) => usersById.get(id)!);
+          await qr.manager
+            .createQueryBuilder()
+            .relation(Group, "members")
+            .of(g.id)
+            .add(addUsers);
+          affectedLinks += validAdd.length;
+        }
+      }
+
+      await qr.commitTransaction();
+      return { updatedGroups: project.groups.length, affectedLinks };
+    } catch (e) {
+      await qr.rollbackTransaction();
+      throw e;
+    } finally {
+      await qr.release();
+    }
   }
 }

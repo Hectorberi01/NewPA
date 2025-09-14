@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
-import { ProjectService } from '../services/project.service';
+import { GroupSavePayload, ProjectService } from '../services/project.service';
 import { AuthenticatedRequest } from '../middleware/auth.middleware';
+import { th } from '@faker-js/faker/.';
 
 export class ProjectController {
   private projectService: ProjectService;
@@ -60,11 +61,11 @@ export class ProjectController {
     try {
       const projectId = parseInt(req.params.id);
       const project = await this.projectService.getProjectById(projectId);
-      
+
       if (!project) {
         return res.status(404).json({ error: 'Project not found' });
       }
-      
+
       res.json(project);
     } catch (error) {
       res.status(500).json({ error: 'Internal Server Error' });
@@ -121,18 +122,18 @@ export class ProjectController {
     try {
       const userId = req.user?.id;
       const userRole = req.user?.role;
-      
+
       if (!userId || !userRole) {
         return res.status(401).json({ error: 'Unauthorized' });
       }
-      
+
       let projects;
       if (userRole === 'teacher') {
         projects = await this.projectService.getProjectsByTeacher(userId);
       } else {
         projects = await this.projectService.getProjectsByStudent(userId);
       }
-      
+
       res.json(projects);
     } catch (error) {
       res.status(500).json({ error: 'Internal Server Error' });
@@ -267,6 +268,90 @@ export class ProjectController {
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: 'Internal Server Error' });
+    }
+  }
+
+  /**
+   * @swagger
+   * /api/projects/{projectId}/groups:
+   *   put:
+   *     summary: Save grouping (assign students to groups) for a project
+   *     tags: [Projects]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: projectId
+   *         required: true
+   *         schema: { type: integer }
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required: [groups, unassignedIds]
+   *             properties:
+   *               groups:
+   *                 type: array
+   *                 items:
+   *                   type: object
+   *                   required: [id, memberIds]
+   *                   properties:
+   *                     id: { type: integer }
+   *                     memberIds:
+   *                       type: array
+   *                       items: { type: integer }
+   *               unassignedIds:
+   *                 type: array
+   *                 items: { type: integer }
+   *           examples:
+   *             example:
+   *               value:
+   *                 groups:
+   *                   - id: 1
+   *                     memberIds: [12, 15, 27]
+   *                   - id: 2
+   *                     memberIds: [31]
+   *                 unassignedIds: [8, 9]
+   *     responses:
+   *       200:
+   *         description: Grouping saved
+   *       400:
+   *         description: Validation error (duplicates, capacity exceeded, etc.)
+   *       404:
+   *         description: Project not found
+   */
+  async saveGrouping(req: Request, res: Response) {
+    try {
+      const projectId = Number(req.params.projectId);
+      if (!Number.isFinite(projectId)) {
+        return res.status(400).json({ message: "projectId invalide" });
+      }
+
+      const body = req.body as GroupSavePayload;
+      if (!body || !Array.isArray(body.groups) || !Array.isArray(body.unassignedIds)) {
+        return res.status(400).json({ message: "Payload invalide" });
+      }
+
+      //const service =  new ProjectsService(AppDataSource);
+      //const result = await service.saveGrouping(projectId, body);
+      const result = await this.projectService.saveGrouping(projectId, body);
+
+      return res.status(200).json({
+        message: "Répartition enregistrée",
+        ...result, // { updatedGroups, affectedLinks }
+      });
+    } catch (err: any) {
+      if (err?.code === "CAPACITY_EXCEEDED") {
+        return res.status(400).json({ message: err.message, details: err.details });
+      }
+      if (err?.code === "VALIDATION_ERROR") {
+        return res.status(400).json({ message: err.message, details: err.details });
+      }
+      if (err?.code === "NOT_FOUND") {
+        return res.status(404).json({ message: err.message });
+      }
     }
   }
 }

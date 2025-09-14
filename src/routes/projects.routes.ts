@@ -26,4 +26,7 @@ router.post('/:id/groups/manual', authMiddleware, requireTeacher,
 router.post('/:id/assign-unassigned', authMiddleware, requireTeacher, 
   projectController.assignUnassignedStudents.bind(projectController));
 
+router.put("/:projectId/groups", authMiddleware,
+  projectController.saveGrouping.bind(projectController));
+
 export default router;

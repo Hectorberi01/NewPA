@@ -74,11 +74,17 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 // CORS configuration
-app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? [process.env.FRONTEND_URL || 'https://app.student-projects.com']
-    : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:4200'],
-  credentials: true,
+// app.use(cors({
+//   origin: process.env.NODE_ENV === 'production' 
+//     ? [process.env.FRONTEND_URL || 'https://app.student-projects.com']
+//     : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:4200'],
+//   credentials: true,
+//   optionsSuccessStatus: 200
+// }));
+app.use (cors({
+  origin: '*', // Autoriser toutes les origines (à restreindre en production)
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   optionsSuccessStatus: 200
 }));
 
