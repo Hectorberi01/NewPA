@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { DeliverableService } from '../services/deliverable.service';
 import { uploadMiddleware } from '../middleware/upload.middleware';
 
@@ -317,6 +317,64 @@ export class DeliverableController {
       res.json(deliverables);
     } catch (error) {
       res.status(500).json({ error: 'Internal Server Error' });
+    }
+  }
+
+  /**
+   * @swagger
+   * /api/deliverables/submissions/{id}/download:
+   *   get:
+   *     summary: Download a submission file
+   *     tags: [Deliverables]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: integer
+   *     responses:
+   *       200:
+   *         description: File downloaded successfully
+   *         content:
+   *           application/octet-stream:
+   *             schema:
+   *               type: string
+   *               format: binary
+   *       404:
+   *         description: Submission or file not found  
+   */
+  async download(req: Request, res: Response, next: NextFunction) {
+    try {
+      const submissionId = Number(req.params.id);
+      if (!Number.isFinite(submissionId)) return res.status(400).json({ message: "Invalid id" });
+
+      const { filePath, filename } =  await this.deliverableService.downloadSubmission(submissionId);
+
+      // Option A: utiliser res.download (set Content-Type, Content-Disposition automatiquement)
+      return res.download(filePath, filename, (err) => {
+        if (err) {
+          console.error("Error sending file:", err);
+          if (!res.headersSent) res.status(500).json({ message: "Error sending file" });
+        }
+      });
+
+      // Option B: stream manuel (décommenter si tu préfères)
+      /*
+      res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(filename)}"`);
+      const stream = fs.createReadStream(filePath);
+      stream.pipe(res);
+      stream.on("error", (e) => {
+        console.error(e);
+        if (!res.headersSent) res.status(500).end();
+      });
+      */
+    } catch (err: any) {
+      if (err.message === "Submission not found") return res.status(404).json({ message: err.message });
+      if (err.message === "No file associated with this submission") return res.status(404).json({ message: err.message });
+      if (err.message === "File not found") return res.status(404).json({ message: "File not found on disk" });
+      next(err);
     }
   }
 }

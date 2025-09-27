@@ -1,11 +1,13 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
+import { Repository, DataSource, In } from 'typeorm';
 import { DefenseService } from '../services/defense.service';
+import { AppDataSource } from '../database/data-source';
 
 export class DefenseController {
   private defenseService: DefenseService;
-
+  private ds: DataSource;
   constructor() {
-    this.defenseService = new DefenseService();
+    this.defenseService = new DefenseService(AppDataSource);
   }
 
   /**
@@ -43,11 +45,12 @@ export class DefenseController {
   async scheduleDefenses(req: Request, res: Response) {
     try {
       const projectId = parseInt(req.params.projectId);
-      const { startDateTime, durationPerGroup } = req.body;
+      const { startDateTime, durationPerGroup, location } = req.body;
       const defenses = await this.defenseService.scheduleDefenses(
         projectId,
         new Date(startDateTime),
-        durationPerGroup
+        durationPerGroup,
+        location
       );
       res.status(201).json(defenses);
     } catch (error) {
@@ -89,16 +92,36 @@ export class DefenseController {
    *       200:
    *         description: Defense order updated successfully
    */
-  async updateDefenseOrder(req: Request, res: Response) {
+  async updateOrder(req: Request, res: Response, next: NextFunction) {
     try {
-      const projectId = parseInt(req.params.projectId);
+      const projectId = Number(req.params.projectId);
       const { newOrder } = req.body;
-      const defenses = await this.defenseService.updateDefenseOrder(projectId, newOrder);
-      res.json(defenses);
-    } catch (error) {
-      res.status(500).json({ error: 'Internal Server Error' });
+      console.log("updateOrder called with:", { projectId, newOrder });
+      //const service = new DefensesService(AppDataSource);
+      const updated = await this.defenseService.updateDefenseOrder(projectId, newOrder);
+
+      return res.status(200).json({ message: "Ordre mis à jour", defenses: updated });
+    } catch (err: any) {
+      console.error("updateOrder error:", err);
+      if (err?.code === "BAD_REQUEST" || err?.code === "VALIDATION_ERROR") {
+        return res.status(400).json({ message: err.message, details: err.details ?? null });
+      }
+      if (err?.code === "NOT_FOUND") {
+        return res.status(404).json({ message: err.message });
+      }
+      return next(err);
     }
   }
+  // async updateDefenseOrder(req: Request, res: Response) {
+  //   try {
+  //     const projectId = parseInt(req.params.projectId);
+  //     const { newOrder } = req.body;
+  //     const defenses = await this.defenseService.updateDefenseOrder(projectId, newOrder);
+  //     res.json(defenses);
+  //   } catch (error) {
+  //     res.status(500).json({ error: 'Internal Server Error' });
+  //   }
+  // }
 
   /**
    * @swagger

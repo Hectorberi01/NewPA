@@ -73,6 +73,7 @@ export class ProjectService {
         'deliverables.validationRules',
         'reports',
         'defenses',
+        'defenses.group',
         'gradingGrids'
       ]
     });

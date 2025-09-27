@@ -23,6 +23,10 @@ router.post('/:id/analyze-similarity', authMiddleware, requireTeacher,
 router.post('/:id/send-reminders', authMiddleware, requireTeacher, 
   deliverableController.sendDeadlineReminders.bind(deliverableController));
 
+router.get('/submissions/:id/download', authMiddleware,requireTeacher, 
+  deliverableController.download.bind(deliverableController));
+
+
 // Routes pour les étudiants
 router.post('/:id/submit', authMiddleware, uploadMiddleware.single('file'), 
   deliverableController.submitDeliverable.bind(deliverableController));
