@@ -72,9 +72,12 @@ export class ProjectService {
         'deliverables.submissions.group',
         'deliverables.validationRules',
         'reports',
+        'reports.sections',
+        'reports.group',
         'defenses',
         'defenses.group',
-        'gradingGrids'
+        'gradingGrids',
+        'gradingGrids.criteria'
       ]
     });
   }
