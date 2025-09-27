@@ -31,6 +31,9 @@ export class ProjectService {
     if (savedProject.status === 'visible') {
       await this.notifyStudentsNewProject(savedProject);
     }
+    if(savedProject.groupFormationRule !== 'random'){
+      await this.createRandomGroups(savedProject.id);
+    }
 
     return savedProject;
   }
@@ -65,6 +68,9 @@ export class ProjectService {
         'groups', 
         'groups.members',
         'deliverables',
+        'deliverables.submissions',
+        'deliverables.submissions.group',
+        'deliverables.validationRules',
         'reports',
         'defenses',
         'gradingGrids'
@@ -95,22 +101,27 @@ export class ProjectService {
   }
 
   async generateRandomGroups(projectId: number): Promise<Group[]> {
+    console.log(`Generating random groups for project ID: ${projectId}`);
     const project = await this.projectRepository.findOne({
       where: { id: projectId },
       relations: ['promotion', 'promotion.students', 'groups']
     });
+    console.log('Project details:', project);
 
     if (!project) throw new Error('Project not found');
     if (project.groupFormationRule !== 'random') {
       throw new Error('Random group generation not allowed for this project');
     }
 
+    console.log(`Removing existing groups for project "${project}"`);
+    
     // Supprimer les groupes existants
     if (project.groups.length > 0) {
       await this.groupRepository.remove(project.groups);
     }
 
     const students = project.promotion.students.filter(s => s.isActive);
+    console.log(`Active students in promotion:`, students.map(s => s.id));
     const maxGroupSize = project.maxGroupSize || 4;
     const minGroupSize = project.minGroupSize || 2;
     const groups: Group[] = [];
@@ -121,6 +132,7 @@ export class ProjectService {
     let currentIndex = 0;
     let groupNumber = 1;
 
+    console.log(`Generating groups for project "${project}" with ${shuffledStudents.length} students`);
     while (currentIndex < shuffledStudents.length) {
       const remainingStudents = shuffledStudents.length - currentIndex;
       const remainingGroups = Math.ceil(remainingStudents / maxGroupSize);
@@ -134,12 +146,14 @@ export class ProjectService {
       }
 
       const groupMembers = shuffledStudents.slice(currentIndex, currentIndex + groupSize);
-      
+      console.log(`Forming group ${groupNumber} with members:`, groupMembers.map(m => m.id));
       const group = this.groupRepository.create({
         name: `Groupe ${groupNumber}`,
         project,
         members: groupMembers
       });
+
+      console.log(`Creating group "${group.name}" with members:`, groupMembers.map(m => m.id));
 
       groups.push(await this.groupRepository.save(group));
       currentIndex += groupSize;
@@ -147,6 +161,65 @@ export class ProjectService {
     }
 
     return groups;
+  }
+
+  async createRandomGroups(projectId: number): Promise<Group[]> {
+    const project = await this.projectRepository.findOne({
+      where: { id: projectId },
+      relations: ['promotion', 'promotion.students', 'groups']
+    });
+    console.log('Project details:', project);
+
+    if (!project) throw new Error('Project not found');
+
+    console.log(`Removing existing groups for project "${project}"`);
+    
+    // Supprimer les groupes existants
+    if (project.groups.length > 0) {
+      await this.groupRepository.remove(project.groups);
+    }
+
+    const students = project.promotion.students.filter(s => s.isActive);
+    console.log(`Active students in promotion:`, students.map(s => s.id));
+    const maxGroupSize = project.maxGroupSize || 4;
+    const minGroupSize = project.minGroupSize || 2;
+    const groups: Group[] = [];
+
+    // Mélanger les étudiants
+    const shuffledStudents = [...students].sort(() => Math.random() - 0.5);
+    
+    let currentIndex = 0;
+    let groupNumber = 1;
+
+    console.log(`Generating groups for project "${project}" with ${shuffledStudents.length} students`);
+    while (currentIndex < shuffledStudents.length) {
+      const remainingStudents = shuffledStudents.length - currentIndex;
+      const remainingGroups = Math.ceil(remainingStudents / maxGroupSize);
+      
+      // Calculer la taille optimale pour ce groupe
+      let groupSize = Math.min(maxGroupSize, remainingStudents);
+      
+      // Éviter d'avoir un dernier groupe trop petit
+      if (remainingGroups === 2 && remainingStudents < minGroupSize + maxGroupSize) {
+        groupSize = Math.ceil(remainingStudents / 2);
+      }
+
+      const groupMembers = shuffledStudents.slice(currentIndex, currentIndex + groupSize);
+      console.log(`Forming group ${groupNumber} with members:`, groupMembers.map(m => m.id));
+      const group = this.groupRepository.create({
+        name: `Groupe ${groupNumber}`,
+        project,
+      });
+
+      console.log(`Creating group "${group.name}" with members:`, groupMembers.map(m => m.id));
+
+      groups.push(await this.groupRepository.save(group));
+      currentIndex += groupSize;
+      groupNumber++;
+    }
+
+    return groups;
+    //return this.generateRandomGroups(projectId);
   }
 
   async generateManualGroups(projectId: number, groupsData: { name: string; memberIds: number[] }[]): Promise<Group[]> {

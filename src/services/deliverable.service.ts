@@ -1,13 +1,21 @@
 import { Repository } from 'typeorm';
 import { AppDataSource } from '../database/data-source';
-import { Deliverable ,DeliverableSubmission,DeliverableRule,Group} from '../entities/Entities';
+import { Deliverable ,DeliverableSubmission,DeliverableRule,Group,Project} from '../entities/Entities';
 import { FileValidationService } from '../utils/file-validation.service';
 import { SimilarityService } from '../utils/similarity.service';
 import { EmailService } from '../utils/email.service';
-
+interface createDeliverableDTO {
+  name: string;
+  description?: string;
+  deadline: Date;
+  allowLateSubmission: boolean;
+  penaltyPerHour: number;
+  projectId: number;
+}
 export class DeliverableService {
   private deliverableRepository: Repository<Deliverable>;
   private submissionRepository: Repository<DeliverableSubmission>;
+  private projectRepository: Repository<Project>;
   private ruleRepository: Repository<DeliverableRule>;
   private groupRepository: Repository<Group>;
   private emailService: EmailService;
@@ -17,11 +25,20 @@ export class DeliverableService {
     this.submissionRepository = AppDataSource.getRepository(DeliverableSubmission);
     this.ruleRepository = AppDataSource.getRepository(DeliverableRule);
     this.groupRepository = AppDataSource.getRepository(Group);
+    this.projectRepository = AppDataSource.getRepository(Project);
     this.emailService = new EmailService();
   }
 
-  async createDeliverable(deliverableData: Partial<Deliverable>): Promise<Deliverable> {
+  async createDeliverable(deliverableData: createDeliverableDTO): Promise<Deliverable> {
+    if (!deliverableData.name || !deliverableData.deadline || deliverableData.allowLateSubmission === undefined || deliverableData.penaltyPerHour === undefined || !deliverableData.projectId) {
+      throw new Error('Missing required fields');
+    }
+    // vrérifier si le projet existe
+    const project = await this.projectRepository.findOne({ where: { id: deliverableData.projectId } });
+    if (!project) throw new Error('Project not found');
+
     const deliverable = this.deliverableRepository.create(deliverableData);
+    deliverable.project = project;
     return await this.deliverableRepository.save(deliverable);
   }
 
@@ -120,8 +137,10 @@ export class DeliverableService {
       relations: ['group']
     });
 
+    console.log('submissions:', submissions);
+
     const similarityResults = await SimilarityService.analyzeSubmissionSimilarity(submissions);
-    
+    console.log('Similarity results:', similarityResults);
     // Sauvegarder les résultats de similarité
     for (const result of similarityResults) {
       const submission1 = submissions.find(s => s.group.id === result.groupId1);
@@ -201,6 +220,18 @@ export class DeliverableService {
     }
 
     await Promise.allSettled(emailPromises);
+  }
+
+  async downloadSubmission(submissionId: number): Promise<DeliverableSubmission> {
+    const submission = await this.submissionRepository.findOne({
+      where: { id: submissionId },
+      relations: ['deliverable', 'group', 'group.members']
+    });
+
+    if (!submission) throw new Error('Submission not found');
+    if (!submission.filePath) throw new Error('No file associated with this submission');
+
+    return submission;
   }
 
   private async validateSubmission(

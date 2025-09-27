@@ -294,7 +294,7 @@ export class DeliverableController {
 
   /**
    * @swagger
-   * /api/projects/{projectId}/deliverables:
+   * /api/deliverables/projects/{projectId}/deliverables:
    *   get:
    *     summary: Get all deliverables for a project
    *     tags: [Deliverables]

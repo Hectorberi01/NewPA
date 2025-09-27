@@ -95,8 +95,7 @@ async function startServer() {
         console.log(`🗄️  Database: ${process.env.DB_NAME}@${process.env.DB_HOST}:${process.env.DB_PORT}`);
         
         if (!certificatesExist() && NODE_ENV === 'production') {
-          console.log('⚠️  SSL certificates not found. Running in HTTP mode.');
-          console.log('   To enable HTTPS, ensure certificates exist at:');
+
           console.log(`   /etc/letsencrypt/live/${DOMAIN}/`);
         }
       });

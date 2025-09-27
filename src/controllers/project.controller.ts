@@ -32,6 +32,7 @@ export class ProjectController {
     try {
       const teacherId = req.user?.id;
       const projectData = { ...req.body, teacher: { id: teacherId } };
+      console.log("Creating project with data:", projectData);
       const project = await this.projectService.createProject(projectData);
       res.status(201).json(project);
     } catch (error) {

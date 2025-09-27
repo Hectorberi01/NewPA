@@ -3,6 +3,15 @@ import { Repository } from 'typeorm';
 import { AppDataSource } from '../database/data-source';
 import { GradingGrid,GradingCriterion,Grade ,CriterionGrade,Group,Project} from '../entities/Entities';
 
+interface createGradingGridDTO {
+  name: string;
+  type: 'deliverable' | 'report' | 'defense';
+  projectId: number;
+  weight?: number;
+  description?: string;
+}
+
+
 
 export class GradingService {
   private gradingGridRepository: Repository<GradingGrid>;
@@ -21,8 +30,31 @@ export class GradingService {
     this.projectRepository = AppDataSource.getRepository(Project);
   }
 
-  async createGradingGrid(gridData: Partial<GradingGrid>): Promise<GradingGrid> {
+  async createGradingGrid(gridData: createGradingGridDTO): Promise<GradingGrid> {
+    if (!gridData.name || !gridData.type || !gridData.projectId) {
+      console.log('Missing required fields:', gridData);
+      throw new Error('Missing required fields: name, type, projectId');
+    }
+
+    if(gridData.projectId == null || isNaN(gridData.projectId)){
+      console.log('Invalid projectId:', gridData.projectId);
+      throw new Error('Invalid projectId');
+    }
+    
+    // Vérifier que le projet existe
+    const project = await this.projectRepository.findOne({ where: { id: gridData.projectId } });
+    if (!project) {
+      throw new Error('Project not found');
+    }
+    // Vrérifier qu'il n'existe pas déjà une grille du même type pour ce projet
+    const existingGrid = await this.gradingGridRepository.findOne({
+      where: { project: { id: gridData.projectId }, type: gridData.type }
+    });
+    if (existingGrid) {
+      throw new Error(`A grading grid of type '${gridData.type}' already exists for this project`);
+    }
     const grid = this.gradingGridRepository.create(gridData);
+    grid.project = project;
     return await this.gradingGridRepository.save(grid);
   }
 
