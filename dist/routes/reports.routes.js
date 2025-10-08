@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const report_controller_1 = require("../controllers/report.controller");
+const auth_middleware_1 = require("../middleware/auth.middleware");
+const router = (0, express_1.Router)();
+const reportController = new report_controller_1.ReportController();
+router.post('/', auth_middleware_1.authMiddleware, reportController.createReport.bind(reportController));
+router.put('/:id/sections', auth_middleware_1.authMiddleware, reportController.updateSection.bind(reportController));
+exports.default = router;

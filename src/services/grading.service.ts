@@ -3,6 +3,15 @@ import { Repository } from 'typeorm';
 import { AppDataSource } from '../database/data-source';
 import { GradingGrid,GradingCriterion,Grade ,CriterionGrade,Group,Project} from '../entities/Entities';
 
+interface createGradingGridDTO {
+  name: string;
+  type: 'deliverable' | 'report' | 'defense';
+  projectId: number;
+  weight?: number;
+  description?: string;
+}
+
+
 
 export class GradingService {
   private gradingGridRepository: Repository<GradingGrid>;
@@ -55,6 +64,7 @@ async createGradingGrid(gridData: any): Promise<GradingGrid> {
     return await this.gradingGridRepository.save(grid);
   }
 
+  // Suppression d'une grille de notation
   async deleteGradingGrid(id: number): Promise<void> {
     const grid = await this.gradingGridRepository.findOne({
       where: { id },
@@ -77,6 +87,7 @@ async createGradingGrid(gridData: any): Promise<GradingGrid> {
     await this.gradingGridRepository.remove(grid);
   }
 
+  // Récupérer une grille de notation par ID
   async getGradingGridById(id: number): Promise<GradingGrid | null> {
     return await this.gradingGridRepository.findOne({
       where: { id },
@@ -84,6 +95,7 @@ async createGradingGrid(gridData: any): Promise<GradingGrid> {
     });
   }
 
+  // Ajout d'un critère à une grille de notation
   async addCriterion(gridId: number, criterionData: Partial<GradingCriterion>): Promise<GradingCriterion> {
     const grid = await this.gradingGridRepository.findOne({ where: { id: gridId } });
     if (!grid) throw new Error('Grading grid not found');
@@ -96,6 +108,7 @@ async createGradingGrid(gridData: any): Promise<GradingGrid> {
     return await this.criterionRepository.save(criterion);
   }
 
+  // Mise à jour d'un critère de notation
   async updateCriterion(id: number, criterionData: Partial<GradingCriterion>): Promise<GradingCriterion> {
     const criterion = await this.criterionRepository.findOne({ where: { id } });
     if (!criterion) throw new Error('Criterion not found');
@@ -104,6 +117,7 @@ async createGradingGrid(gridData: any): Promise<GradingGrid> {
     return await this.criterionRepository.save(criterion);
   }
 
+  // Suppression d'un critère de notation
   async deleteCriterion(id: number): Promise<void> {
     const criterion = await this.criterionRepository.findOne({
       where: { id },
@@ -120,6 +134,7 @@ async createGradingGrid(gridData: any): Promise<GradingGrid> {
     await this.criterionRepository.remove(criterion);
   }
 
+  // Récupérer toutes les grilles de notation d'un projet
   async getGradingGridsByProject(projectId: number): Promise<GradingGrid[]> {
     return await this.gradingGridRepository.find({
       where: { project: { id: projectId } },
@@ -128,16 +143,22 @@ async createGradingGrid(gridData: any): Promise<GradingGrid> {
     });
   }
 
+  // Noter un groupe pour une grille de notation
   async gradeGroup(
     gradingGridId: number,
     groupId: number,
     criterionGrades: { criterionId: number; score: number; comments?: string }[],
     globalComments?: string
   ): Promise<Grade> {
+
     const grid = await this.gradingGridRepository.findOne({
       where: { id: gradingGridId },
-      relations: ['criteria']
+      relations: [
+        'criteria',
+      ]
     });
+
+    console.log('Found grading grid:', grid);
     
     if (!grid) throw new Error('Grading grid not found');
 
@@ -150,9 +171,12 @@ async createGradingGrid(gridData: any): Promise<GradingGrid> {
         gradingGrid: { id: gradingGridId },
         group: { id: groupId }
       },
-      relations: ['criterionGrades']
+      relations: [
+        'criterionGrades',
+      ]
     });
 
+    console.log('Existing grade:', grade);
     if (!grade) {
       grade = this.gradeRepository.create({
         gradingGrid: grid,
@@ -168,14 +192,16 @@ async createGradingGrid(gridData: any): Promise<GradingGrid> {
     }
 
     const savedGrade = await this.gradeRepository.save(grade);
-
+    console.log('Saved grade:', savedGrade);
     // Créer les nouvelles notes de critères
     const criterionGradeEntities: CriterionGrade[] = [];
     let totalScore = 0;
     let maxPossibleScore = 0;
 
     for (const criterionGradeData of criterionGrades) {
+      console.log('Processing criterion grade data:', criterionGradeData);
       const criterion = grid.criteria.find(c => c.id === criterionGradeData.criterionId);
+      console.log('Found criterion:', criterion);
       if (!criterion) {
         throw new Error(`Criterion with id ${criterionGradeData.criterionId} not found in this grading grid`);
       }
@@ -192,12 +218,15 @@ async createGradingGrid(gridData: any): Promise<GradingGrid> {
         comments: criterionGradeData.comments
       });
 
+      console.log('Created criterion grade:', criterionGrade);
       criterionGradeEntities.push(criterionGrade);
       
       // Calculer le score total pondéré
       totalScore += criterionGradeData.score * criterion.weight;
       maxPossibleScore += criterion.maxScore * criterion.weight;
     }
+
+    console.log('Criterion grades to save:', criterionGradeEntities);
 
     await this.criterionGradeRepository.save(criterionGradeEntities);
 
@@ -215,6 +244,7 @@ async createGradingGrid(gridData: any): Promise<GradingGrid> {
     return result;
   }
 
+  // Récupérer les notes d'un groupe
   async getGradesByGroup(groupId: number): Promise<Grade[]> {
     return await this.gradeRepository.find({
       where: { group: { id: groupId } },
@@ -223,6 +253,7 @@ async createGradingGrid(gridData: any): Promise<GradingGrid> {
     });
   }
 
+  // Récupérer les notes d'un projet
   async getGradesByProject(projectId: number): Promise<Grade[]> {
     return await this.gradeRepository.find({
       where: { gradingGrid: { project: { id: projectId } } },
@@ -237,6 +268,7 @@ async createGradingGrid(gridData: any): Promise<GradingGrid> {
     });
   }
 
+  // Récupérer une note par son ID
   async getGradeById(gradeId: number): Promise<Grade | null> {
     return await this.gradeRepository.findOne({
       where: { id: gradeId },
@@ -250,6 +282,7 @@ async createGradingGrid(gridData: any): Promise<GradingGrid> {
     });
   }
 
+  // Valider une ou plusieurs notes
   async validateGrades(gradeIds: number[]): Promise<Grade[]> {
     const grades = await this.gradeRepository.findByIds(gradeIds);
     
@@ -260,6 +293,7 @@ async createGradingGrid(gridData: any): Promise<GradingGrid> {
     return await this.gradeRepository.save(grades);
   }
 
+  // Calculer la note finale d'un projet pour un groupe
   async calculateProjectGrade(projectId: number, groupId: number): Promise<number> {
     const grades = await this.gradeRepository.find({
       where: { 
@@ -282,6 +316,7 @@ async createGradingGrid(gridData: any): Promise<GradingGrid> {
     return totalWeight > 0 ? weightedSum / totalWeight : 0;
   }
 
+  // Récupérer le résumé des notes d'un projet
   async getProjectGradingSummary(projectId: number): Promise<any> {
     const project = await this.projectRepository.findOne({
       where: { id: projectId },
@@ -334,6 +369,7 @@ async createGradingGrid(gridData: any): Promise<GradingGrid> {
     return summary;
   }
 
+  // Exporter les notes d'un projet au format CSV
   async exportGradesToCSV(projectId: number): Promise<string> {
     const summary = await this.getProjectGradingSummary(projectId);
     
@@ -361,6 +397,7 @@ async createGradingGrid(gridData: any): Promise<GradingGrid> {
     return csv;
   }
 
+  // Récupérer les statistiques de notation d'un projet
   async getGradingStatistics(projectId: number): Promise<any> {
     const grades = await this.getGradesByProject(projectId);
     const project = await this.projectRepository.findOne({

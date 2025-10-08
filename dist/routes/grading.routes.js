@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const grading_controller_1 = require("../controllers/grading.controller");
+const auth_middleware_1 = require("../middleware/auth.middleware");
+const router = (0, express_1.Router)();
+const gradingController = new grading_controller_1.GradingController();
+router.post('/grids', auth_middleware_1.authMiddleware, auth_middleware_1.requireTeacher, gradingController.createGradingGrid.bind(gradingController));
+router.post('/grade', auth_middleware_1.authMiddleware, auth_middleware_1.requireTeacher, gradingController.gradeGroup.bind(gradingController));
+exports.default = router;

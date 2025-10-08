@@ -1,0 +1,33 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const users_routes_1 = __importDefault(require("./users.routes"));
+const projects_routes_1 = __importDefault(require("./projects.routes"));
+const deliverables_routes_1 = __importDefault(require("./deliverables.routes"));
+const promotions_routes_1 = __importDefault(require("./promotions.routes"));
+const groups_routes_1 = __importDefault(require("./groups.routes"));
+const reports_routes_1 = __importDefault(require("./reports.routes"));
+const defenses_routes_1 = __importDefault(require("./defenses.routes"));
+const grading_routes_1 = __importDefault(require("./grading.routes"));
+const auth_routes_1 = __importDefault(require("./auth.routes"));
+const router = (0, express_1.Router)();
+router.use('/auth', auth_routes_1.default);
+router.use('/users', users_routes_1.default);
+router.use('/projects', projects_routes_1.default);
+router.use('/deliverables', deliverables_routes_1.default);
+router.use('/promotions', promotions_routes_1.default);
+router.use('/groups', groups_routes_1.default);
+router.use('/reports', reports_routes_1.default);
+router.use('/defenses', defenses_routes_1.default);
+router.use('/grading', grading_routes_1.default);
+// Routes combinées pour certaines fonctionnalités
+router.use('/projects/:projectId/groups', groups_routes_1.default);
+router.use('/projects/:projectId/reports', reports_routes_1.default);
+router.use('/projects/defenses', defenses_routes_1.default);
+router.use('/projects/:projectId/deliverables', deliverables_routes_1.default);
+router.use('/projects/:projectId/defenses', defenses_routes_1.default);
+router.use('/projects/:projectId/grading', grading_routes_1.default);
+exports.default = router;

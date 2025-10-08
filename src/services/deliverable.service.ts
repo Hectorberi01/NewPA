@@ -1,13 +1,23 @@
 import { Repository } from 'typeorm';
 import { AppDataSource } from '../database/data-source';
-import { Deliverable ,DeliverableSubmission,DeliverableRule,Group} from '../entities/Entities';
+import { Deliverable, DeliverableSubmission, DeliverableRule, Group, Project } from '../entities/Entities';
 import { FileValidationService } from '../utils/file-validation.service';
 import { SimilarityService } from '../utils/similarity.service';
 import { EmailService } from '../utils/email.service';
-
+import path from "path";
+import fs from "fs/promises";
+interface createDeliverableDTO {
+  name: string;
+  description?: string;
+  deadline: Date;
+  allowLateSubmission: boolean;
+  penaltyPerHour: number;
+  projectId: number;
+}
 export class DeliverableService {
   private deliverableRepository: Repository<Deliverable>;
   private submissionRepository: Repository<DeliverableSubmission>;
+  private projectRepository: Repository<Project>;
   private ruleRepository: Repository<DeliverableRule>;
   private groupRepository: Repository<Group>;
   private emailService: EmailService;
@@ -17,11 +27,20 @@ export class DeliverableService {
     this.submissionRepository = AppDataSource.getRepository(DeliverableSubmission);
     this.ruleRepository = AppDataSource.getRepository(DeliverableRule);
     this.groupRepository = AppDataSource.getRepository(Group);
+    this.projectRepository = AppDataSource.getRepository(Project);
     this.emailService = new EmailService();
   }
 
-  async createDeliverable(deliverableData: Partial<Deliverable>): Promise<Deliverable> {
+  async createDeliverable(deliverableData: createDeliverableDTO): Promise<Deliverable> {
+    if (!deliverableData.name || !deliverableData.deadline || deliverableData.allowLateSubmission === undefined || deliverableData.penaltyPerHour === undefined || !deliverableData.projectId) {
+      throw new Error('Missing required fields');
+    }
+    // vrérifier si le projet existe
+    const project = await this.projectRepository.findOne({ where: { id: deliverableData.projectId } });
+    if (!project) throw new Error('Project not found');
+
     const deliverable = this.deliverableRepository.create(deliverableData);
+    deliverable.project = project;
     return await this.deliverableRepository.save(deliverable);
   }
 
@@ -34,7 +53,7 @@ export class DeliverableService {
   }
 
   async addValidationRule(
-    deliverableId: number, 
+    deliverableId: number,
     ruleData: Partial<DeliverableRule>
   ): Promise<DeliverableRule> {
     const deliverable = await this.deliverableRepository.findOne({ where: { id: deliverableId } });
@@ -49,15 +68,15 @@ export class DeliverableService {
   }
 
   async submitDeliverable(
-    deliverableId: number, 
-    groupId: number, 
+    deliverableId: number,
+    groupId: number,
     submissionData: Partial<DeliverableSubmission>
   ): Promise<DeliverableSubmission> {
     const deliverable = await this.deliverableRepository.findOne({
       where: { id: deliverableId },
       relations: ['validationRules']
     });
-    
+
     if (!deliverable) throw new Error('Deliverable not found');
 
     const group = await this.groupRepository.findOne({ where: { id: groupId } });
@@ -70,7 +89,7 @@ export class DeliverableService {
 
     const now = new Date();
     const isLate = now > deliverable.deadline;
-    
+
     // Calculer la pénalité
     let penalty = 0;
     if (isLate) {
@@ -120,18 +139,20 @@ export class DeliverableService {
       relations: ['group']
     });
 
+    console.log('submissions:', submissions);
+
     const similarityResults = await SimilarityService.analyzeSubmissionSimilarity(submissions);
-    
+    console.log('Similarity results:', similarityResults);
     // Sauvegarder les résultats de similarité
     for (const result of similarityResults) {
       const submission1 = submissions.find(s => s.group.id === result.groupId1);
       const submission2 = submissions.find(s => s.group.id === result.groupId2);
-      
+
       if (submission1) {
         submission1.similarityScore = Math.max(submission1.similarityScore || 0, result.similarity);
         await this.submissionRepository.save(submission1);
       }
-      
+
       if (submission2) {
         submission2.similarityScore = Math.max(submission2.similarityScore || 0, result.similarity);
         await this.submissionRepository.save(submission2);
@@ -203,8 +224,42 @@ export class DeliverableService {
     await Promise.allSettled(emailPromises);
   }
 
+  async downloadSubmission(submissionId: number): Promise<{ filePath: string, filename: string }> {
+    const submission = await this.submissionRepository.findOne({
+      where: { id: submissionId },
+      relations: ['deliverable', 'group', 'group.members'],
+    });
+
+    if (!submission) throw new Error('Submission not found');
+    if (!submission.filePath) throw new Error('No file associated with this submission');
+
+    const UPLOAD_DIR = path.resolve(process.cwd(), "uploads");
+    const filenameOnDisk = path.basename(submission.filePath);
+    const fullPath = path.join(UPLOAD_DIR, filenameOnDisk);
+
+    // Vérifie que le fichier est bien dans le dossier uploads
+    const resolved = path.resolve(fullPath);
+    if (!resolved.startsWith(UPLOAD_DIR)) {
+      throw new Error("Invalid file path");
+    }
+
+    // Vérifier existence
+    try {
+      const st = await fs.stat(resolved);
+      if (!st.isFile()) throw new Error("File not found");
+    } catch (err) {
+      throw new Error("File not found");
+    }
+
+    // Nom de téléchargement : si tu stockes originalName dans la DB, utilise-le, sinon basename
+    const downloadName = filenameOnDisk;
+
+    return { filePath: resolved, filename: downloadName };
+  }
+  
+
   private async validateSubmission(
-    deliverable: Deliverable, 
+    deliverable: Deliverable,
     submissionData: Partial<DeliverableSubmission>
   ): Promise<any> {
     const results: any = {};
@@ -222,7 +277,7 @@ export class DeliverableService {
           case 'max_size':
             if (submissionData.filePath) {
               validationResult = await FileValidationService.validateArchiveSize(
-                submissionData.filePath, 
+                submissionData.filePath,
                 config.maxSizeMB
               );
             }
@@ -259,9 +314,9 @@ export class DeliverableService {
 
         results[rule.type] = validationResult;
       } catch (error) {
-        results[rule.type] = { 
-          valid: false, 
-          error: `Validation error: ${error}` 
+        results[rule.type] = {
+          valid: false,
+          error: `Validation error: ${error}`
         };
       }
     }

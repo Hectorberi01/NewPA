@@ -42,6 +42,7 @@ export class GradingController {
    */
   async createGradingGrid(req: Request, res: Response) {
     try {
+      console.log('Creating grading grid with data:', req.body);
       const grid = await this.gradingService.createGradingGrid(req.body);
       res.status(201).json(grid);
     } catch (error) {

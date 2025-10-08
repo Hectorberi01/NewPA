@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, ManyToMany, JoinTable, CreateDateColumn, UpdateDateColumn, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, ManyToMany, JoinTable, CreateDateColumn, UpdateDateColumn, JoinColumn, Index, Unique } from 'typeorm';
 
 // ===== ENTITÉS PRINCIPALES =====
 
@@ -109,10 +109,10 @@ export class Project {
   @Column({ type: 'int', nullable: true })
   maxGroupSize?: number;
 
-  @Column({ 
-    type: 'enum', 
-    enum: ['manual', 'random', 'free'], 
-    nullable: true 
+  @Column({
+    type: 'enum',
+    enum: ['manual', 'random', 'free'],
+    nullable: true
   })
   groupFormationRule?: 'manual' | 'random' | 'free';
 
@@ -271,18 +271,121 @@ export class DeliverableSubmission {
   penalty!: number;
 
   @Column({ type: 'json', nullable: true })
-  validationResults?: any; // Résultats des règles de validation
+  validationResults?: any;
+
+  @Column({ nullable: true })
+  fileHash?: string;
+
+  @Column({ type: 'int', nullable: true })
+  fileSize?: number;
+
+  @Column({ nullable: true })
+  mime?: string;
+
+  @Column({ type: 'float', nullable: true })
+  textScore?: number;
+
+  @Column({ type: 'float', nullable: true })
+  astScore?: number;
 
   @Column({ type: 'float', nullable: true })
   similarityScore?: number;
 
-  // Relations
+  @Column({ default: 'v1' })
+  analysisVersion!: string;
+
+  @Column({ type: 'json', nullable: true })
+  analysisErrors?: any;
+
+  @CreateDateColumn()
+  createdAt!: Date;
+
+  @UpdateDateColumn()
+  updatedAt!: Date;
+
   @ManyToOne(() => Deliverable, deliverable => deliverable.submissions)
   deliverable!: Deliverable;
 
   @ManyToOne(() => Group, group => group.deliverableSubmissions)
   group!: Group;
+
+  @OneToMany(() => SubmissionFingerprint, fp => fp.submission)
+  fingerprints!: SubmissionFingerprint[];
+
+  @OneToMany(() => SimilarityResult, r => r.submission1)
+  asLeftResults!: SimilarityResult[];
+
+  @OneToMany(() => SimilarityResult, r => r.submission2)
+  asRightResults!: SimilarityResult[];
 }
+@Entity()
+@Unique('uniq_fp_per_file_kind', ['submissionId', 'filePath', 'kind', 'version'])
+export class SubmissionFingerprint {
+  @PrimaryGeneratedColumn()
+  id!: number;
+
+  @ManyToOne(() => DeliverableSubmission, s => s.fingerprints, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'submissionId' })
+  submission!: DeliverableSubmission;
+
+  @Index()
+  @Column()
+  submissionId!: number;
+
+  @Index()
+  @Column()
+  filePath!: string; // chemin relatif dans l’archive
+
+  @Column({ type: 'enum', enum: ['text', 'ast'] })
+  kind!: 'text' | 'ast';
+
+  @Column({ type: 'json' })
+  hashes!: number[]; // k-grams / subtree hashes
+
+  @Column({ type: 'json', nullable: true })
+  stats?: any; // nTokens, k, etc.
+
+  @Index()
+  @Column({ nullable: true })
+  language?: string; // js, ts, java…
+
+  @Column({ default: 'v1' })
+  version!: string;
+
+  @CreateDateColumn()
+  createdAt!: Date;
+}
+@Entity()
+@Unique('uniq_pair_filepaths', ['submissionId1', 'submissionId2', 'filePath1', 'filePath2'])
+export class SimilarityResult {
+  @PrimaryGeneratedColumn()
+  id!: number;
+
+  @ManyToOne(() => DeliverableSubmission, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'submissionId1' })
+  submission1!: DeliverableSubmission;
+
+  @ManyToOne(() => DeliverableSubmission, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'submissionId2' })
+  submission2!: DeliverableSubmission;
+
+  @Index() @Column() submissionId1!: number;
+  @Index() @Column() submissionId2!: number;
+
+  @Column() filePath1!: string;
+  @Column() filePath2!: string;
+
+  @Column('float') textScore!: number;
+  @Column('float') astScore!: number;
+  @Index() @Column('float') finalScore!: number;
+
+  @Column({ type: 'json', nullable: true })
+  details?: any; // ex: fonctions matchées, offsets
+
+  @CreateDateColumn()
+  createdAt!: Date;
+}
+
 
 // ===== RAPPORTS =====
 

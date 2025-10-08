@@ -1,5 +1,10 @@
 import swaggerJSDoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
+import dotenv from 'dotenv';
+import path from "path";
+dotenv.config();
+
+console.log('process.env.NODE_ENV =', process.env.NODE_ENV);
 
 const options = {
   definition: {
@@ -456,7 +461,15 @@ const options = {
   apis: [
     './src/controllers/*.ts', 
     './src/routes/*.ts',
-    './src/entities/*.ts'
+    './src/entities/*.ts',
+    path.join(__dirname, "../routes/**/*.{js,jsx}"),
+    path.join(__dirname, "../controllers/**/*.{js,jsx}"),
+  ],
+  servers: [
+    {
+      url: process.env.NODE_ENV === 'production' ? 'https://test-projet.com:3443' : 'http://localhost:3000',
+      description: process.env.NODE_ENV === 'production' ? 'Production server' : 'Development server'
+    }
   ],
 };
 
