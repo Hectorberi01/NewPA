@@ -21,12 +21,29 @@ export class GradingService {
     this.projectRepository = AppDataSource.getRepository(Project);
   }
 
-  async createGradingGrid(gridData: Partial<GradingGrid>): Promise<GradingGrid> {
-    const grid = this.gradingGridRepository.create(gridData);
-    return await this.gradingGridRepository.save(grid);
+async createGradingGrid(gridData: any): Promise<GradingGrid> {
+  if (!gridData.projectId) {
+    throw new Error("projectId manquant pour la création de la grille");
   }
 
-  async updateGradingGrid(id: number, gridData: Partial<GradingGrid>): Promise<GradingGrid> {
+  const project = await this.projectRepository.findOne({ where: { id: gridData.projectId } });
+  if (!project) {
+    throw new Error(`Projet avec l'ID ${gridData.projectId} introuvable`);
+  }
+
+  const grid = this.gradingGridRepository.create({
+    name: gridData.name,
+    description: gridData.description,
+    type: gridData.type,
+    weight: gridData.weight,
+    project,
+  });
+
+  return await this.gradingGridRepository.save(grid);
+}
+
+
+  async updateGradingGrid(id: number, gridData: any): Promise<GradingGrid> {
     const grid = await this.gradingGridRepository.findOne({
       where: { id },
       relations: ['criteria']
@@ -258,7 +275,7 @@ export class GradingService {
     for (const grade of grades) {
       if (grade.isValidated && grade.totalScore !== null) {
         weightedSum += (grade.totalScore ?? 0) * grade.gradingGrid.weight;
-        totalWeight += grade.gradingGrid.weight;
+        totalWeight += grade.gradingGrid?.weight;
       }
     }
 
@@ -335,10 +352,10 @@ export class GradingService {
       // Notes par grille
       summary.gradingGrids.forEach((grid: any) => {
         const grade = group.grades.find((g: any) => g.gridName === grid.name);
-        csv += `,${grade ? grade.totalScore.toFixed(2) : 'Non noté'}`;
+        csv += `,${grade ? grade.totalScore?.toFixed(2) : 'Non noté'}`;
       });
       
-      csv += `,${group.finalGrade.toFixed(2)}\n`;
+      csv += `,${group.finalGrade?.toFixed(2)}\n`;
     });
 
     return csv;
@@ -468,4 +485,135 @@ export class GradingService {
     }
     return duplicatedGrid;
   }
+
+
+
+// Dans grading.service.ts
+
+async getOrCreateGradingSession(
+  gridId: number, 
+  groupId: number
+): Promise<Grade | null> {
+  // Chercher une session existante
+  const existingGrade = await this.gradeRepository.findOne({
+    where: { 
+      gradingGrid: { id: gridId },
+      group: { id: groupId }
+    },
+    relations: [
+      'gradingGrid', 
+      'gradingGrid.criteria',
+      'group', 
+      'criterionGrades',
+      'criterionGrades.criterion'
+    ]
+  });
+
+  if (existingGrade) {
+    return existingGrade;
+  }
+
+  // Si pas de session, retourner null
+  // Le frontend créera une nouvelle session
+  return null;
 }
+
+async saveGradingSession(
+  gridId: number,
+  groupId: number,
+  sessionData: {
+    entries: Array<{
+      id?: number;
+      criterionId: number;
+      score: number;
+      comment?: string;
+    }>;
+    globalComment?: string;
+    totalScore: number;
+    status: 'draft' | 'validated';
+  },
+  gradeId?: number
+): Promise<Grade> {
+  const grid = await this.gradingGridRepository.findOne({
+    where: { id: gridId },
+    relations: ['criteria']
+  });
+  
+  if (!grid) throw new Error('Grading grid not found');
+
+  const group = await this.groupRepository.findOne({ 
+    where: { id: groupId } 
+  });
+  
+  if (!group) throw new Error('Group not found');
+
+  let grade: Grade;
+
+  if (gradeId && gradeId > 0) {
+    // Mise à jour d'une session existante
+    const existingGrade = await this.gradeRepository.findOne({
+      where: { id: gradeId },
+      relations: ['criterionGrades']
+    });
+
+    if (!existingGrade) throw new Error('Grade not found');
+
+    grade = existingGrade;
+    grade.globalComments = sessionData.globalComment;
+    grade.totalScore = sessionData.totalScore;
+    grade.isValidated = sessionData.status === 'validated';
+
+    // Supprimer les anciennes notes de critères
+    if (grade.criterionGrades && grade.criterionGrades.length > 0) {
+      await this.criterionGradeRepository.remove(grade.criterionGrades);
+    }
+  } else {
+    // Création d'une nouvelle session
+    grade = this.gradeRepository.create({
+      gradingGrid: grid,
+      group: group,
+      globalComments: sessionData.globalComment,
+      totalScore: sessionData.totalScore,
+      isValidated: sessionData.status === 'validated'
+    });
+  }
+
+  const savedGrade = await this.gradeRepository.save(grade);
+
+  // Créer les notes de critères
+  const criterionGrades: CriterionGrade[] = [];
+
+  for (const entry of sessionData.entries) {
+    const criterion = grid.criteria.find(c => c.id === entry.criterionId);
+    if (!criterion) continue;
+
+    const criterionGrade = this.criterionGradeRepository.create({
+      grade: savedGrade,
+      criterion: criterion,
+      score: entry.score,
+      comments: entry.comment
+    });
+
+    criterionGrades.push(criterionGrade);
+  }
+
+  await this.criterionGradeRepository.save(criterionGrades);
+
+  // Recharger avec toutes les relations
+  const result = await this.gradeRepository.findOne({
+    where: { id: savedGrade.id },
+    relations: [
+      'gradingGrid',
+      'gradingGrid.criteria',
+      'group',
+      'criterionGrades',
+      'criterionGrades.criterion'
+    ]
+  });
+
+  if (!result) throw new Error('Grade not found after saving');
+  return result;
+}
+
+
+  }

@@ -38,7 +38,16 @@ export interface MicrosoftUserData {
   givenName: string;
   surname: string;
 }
-
+const TOKEN_CONFIG = {
+  access: {
+    secret: process.env.JWT_SECRET || 'default_secret',
+    expiresIn: process.env.JWT_EXPIRES_IN || '15m' // Réduit à 15 minutes pour plus de sécurité
+  },
+  refresh: {
+    secret: process.env.JWT_REFRESH_SECRET || 'refresh_secret',
+    expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d'
+  }
+};
 export class AuthService {
   private userRepository: Repository<User>;
   private emailService: EmailService;
@@ -133,6 +142,9 @@ export class AuthService {
     };
   }
 
+
+
+  
   /**
    * Authentification Google OAuth
    */

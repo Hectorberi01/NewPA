@@ -3,6 +3,7 @@ import { DataSource } from "typeorm";
 import * as dotenv from "dotenv";
 import { U } from "@faker-js/faker/dist/airline-CLphikKp";
 import { CriterionGrade, Defense, Deliverable, DeliverableRule, DeliverableSubmission, Grade, GradingCriterion, GradingGrid, Group, Project,Report, Promotion, ReportSection, User } from "../entities/Entities";
+import { fa } from "@faker-js/faker/.";
 dotenv.config();
 console.log('Connecting to database with config:')
 
@@ -13,8 +14,9 @@ export const AppDataSource = new DataSource({
     username: process.env.DB_USER ,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME || 'projectacademy',
-    synchronize: true,
+    synchronize: false,
     logging: true,
+    migrationsRun: true,
     entities: [User, Project, Promotion,Group,Deliverable,DeliverableRule,DeliverableSubmission,Report,
       ReportSection, Defense,GradingGrid,GradingCriterion,Grade,CriterionGrade
     ],
