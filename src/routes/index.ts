@@ -8,6 +8,8 @@ import reportRoutes from './reports.routes';
 import defenseRoutes from './defenses.routes';
 import gradingRoutes from './grading.routes';
 import authRoutes from './auth.routes';
+import { buildAntiCheatRouter } from './anticheat.routes';
+import { AppDataSource } from '../database/data-source';
 
 const router = Router();
 router.use('/auth', authRoutes);
@@ -27,5 +29,8 @@ router.use('/projects/defenses', defenseRoutes);
 router.use('/projects/:projectId/deliverables', deliverableRoutes);
 router.use('/projects/:projectId/defenses', defenseRoutes);
 router.use('/projects/:projectId/grading', gradingRoutes);
+
+router.use(buildAntiCheatRouter(AppDataSource));
+
 
 export default router;
