@@ -1,0 +1,150 @@
+{
+  "info": {
+    "name": "NewPA AntiCheat",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth - Register teacher",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\":\"prof@test.local\",\n  \"password\":\"Passw0rd!\",\n  \"firstName\":\"Prof\",\n  \"lastName\":\"Test\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "try {",
+              "  const json = pm.response.json();",
+              "  if (json.token) pm.environment.set('token', json.token);",
+              "} catch(e) {}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth - Login",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\":\"prof@test.local\",\n  \"password\":\"Passw0rd!\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const json = pm.response.json();",
+              "pm.environment.set('token', json.token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "AntiCheat - Upload submission (G1)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{baseUrl}}/api/submissions",
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "file", "type": "file", "src": ["/tmp/s1.zip"] },
+            { "key": "deliverableId", "value": "{{deliverableId}}" },
+            { "key": "groupId", "value": "{{groupId1}}" }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "let id;",
+              "try {",
+              "  const j = pm.response.json();",
+              "  id = j.submissionId || j.submission?.id || j.id;",
+              "} catch(e) {}",
+              "if (id) pm.environment.set('submissionId1', id);",
+              "pm.test('submissionId1 is set', function(){ pm.expect(pm.environment.get('submissionId1')).to.exist; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "AntiCheat - Upload submission (G2)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{baseUrl}}/api/submissions",
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "file", "type": "file", "src": ["/tmp/s2.zip"] },
+            { "key": "deliverableId", "value": "{{deliverableId}}" },
+            { "key": "groupId", "value": "{{groupId2}}" }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "let id;",
+              "try {",
+              "  const j = pm.response.json();",
+              "  id = j.submissionId || j.submission?.id || j.id;",
+              "} catch(e) {}",
+              "if (id) pm.environment.set('submissionId2', id);",
+              "pm.test('submissionId2 is set', function(){ pm.expect(pm.environment.get('submissionId2')).to.exist; });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "AntiCheat - Get similarity summary (S1)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{baseUrl}}/api/submissions/{{submissionId1}}/similarity"
+      }
+    },
+    {
+      "name": "AntiCheat - Compare S1 vs S2",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": "{{baseUrl}}/api/similarity/compare",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"submissionId1\": {{submissionId1}},\n  \"submissionId2\": {{submissionId2}}\n}"
+        }
+      }
+    }
+  ]
+}
+
