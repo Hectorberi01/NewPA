@@ -2,10 +2,11 @@ import { Repository } from 'typeorm';
 import { AppDataSource } from '../database/data-source';
 import { Deliverable, DeliverableSubmission, DeliverableRule, Group, Project } from '../entities/Entities';
 import { FileValidationService } from '../utils/file-validation.service';
-import { SimilarityService } from '../utils/similarity.service';
 import { EmailService } from '../utils/email.service';
 import path from "path";
 import fs from "fs/promises";
+import { AggregatorService } from './anticheat/aggregator/aggregator.service';
+import { AntiCheatService } from './anticheat/anticheat.service';
 interface createDeliverableDTO {
   name: string;
   description?: string;
@@ -132,35 +133,41 @@ export class DeliverableService {
       order: { deadline: 'ASC' }
     });
   }
-
-  async analyzeSimilarity(deliverableId: number): Promise<any[]> {
+  async analyzeSimilarity(deliverableId: number): Promise<any> {
+    // 1) Récupère les soumissions
     const submissions = await this.submissionRepository.find({
       where: { deliverable: { id: deliverableId } },
       relations: ['group']
     });
 
-    console.log('submissions:', submissions);
+    if (!submissions.length) return [];
 
-    const similarityResults = await SimilarityService.analyzeSubmissionSimilarity(submissions);
-    console.log('Similarity results:', similarityResults);
-    // Sauvegarder les résultats de similarité
-    for (const result of similarityResults) {
-      const submission1 = submissions.find(s => s.group.id === result.groupId1);
-      const submission2 = submissions.find(s => s.group.id === result.groupId2);
-
-      if (submission1) {
-        submission1.similarityScore = Math.max(submission1.similarityScore || 0, result.similarity);
-        await this.submissionRepository.save(submission1);
-      }
-
-      if (submission2) {
-        submission2.similarityScore = Math.max(submission2.similarityScore || 0, result.similarity);
-        await this.submissionRepository.save(submission2);
+    // 2) Lance le pipeline anti-cheat pour chaque soumission (extraction → fingerprints → candidats → compare → aggregate)
+    const anti = new AntiCheatService(AppDataSource);
+    for (const s of submissions) {
+      if (s.filePath) {
+        await anti.onSubmissionImported(s.id, s.filePath);
       }
     }
 
-    return similarityResults;
+    const agg = new AggregatorService(AppDataSource);
+    const topPerSubmission = await Promise.all(
+      submissions.map(s => agg.findTopMatches(s.id, 10))
+    );
+
+    // Optionnel : renvoie aussi les agrégats mis à jour présents sur DeliverableSubmission
+    const withAggregates = await this.submissionRepository.find({
+      where: { deliverable: { id: deliverableId } },
+      select: ['id', 'textScore', 'astScore', 'similarityScore']
+    });
+
+    return {
+      matches: topPerSubmission.flat(),
+      aggregates: withAggregates
+    };
   }
+
+
 
   async getSubmissionSummary(deliverableId: number): Promise<any> {
     const deliverable = await this.deliverableRepository.findOne({
@@ -256,7 +263,7 @@ export class DeliverableService {
 
     return { filePath: resolved, filename: downloadName };
   }
-  
+
 
   private async validateSubmission(
     deliverable: Deliverable,
