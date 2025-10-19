@@ -309,7 +309,7 @@ export class DeliverableSubmission {
   @ManyToOne(() => Group, group => group.deliverableSubmissions)
   group!: Group;
 
-  @OneToMany(() => SubmissionFingerprint, fp => fp.submission)
+  @OneToMany(() => SubmissionFingerprint, fp => fp.submission, { cascade: true })
   fingerprints!: SubmissionFingerprint[];
 
   @OneToMany(() => SimilarityResult, r => r.submission1)
