@@ -1,4 +1,3 @@
-// src/modules/anticheat/fingerprint/fingerprint.pipeline.ts
 import { DataSource } from 'typeorm';
 import { ExtractionServiceImpl } from '../extraction/extraction.service';
 import { buildFingerprints, ExtractedFile } from './index';
