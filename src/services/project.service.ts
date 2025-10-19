@@ -1,4 +1,4 @@
-import { Repository,In,DataSource } from 'typeorm';
+import { Repository,In,DataSource ,Brackets} from 'typeorm';
 import { AppDataSource } from '../database/data-source';
 import { Project,Group,User,Promotion } from '../entities/Entities';
 
@@ -27,12 +27,14 @@ export class ProjectService {
     const project = this.projectRepository.create(projectData);
     const savedProject = await this.projectRepository.save(project);
 
+    await this.createRandomGroups(savedProject.id)
     // Si le projet est visible, notifier les étudiants
     if (savedProject.status === 'visible') {
       await this.notifyStudentsNewProject(savedProject);
     }
-    if(savedProject.groupFormationRule !== 'random'){
-      await this.createRandomGroups(savedProject.id);
+    if(savedProject.groupFormationRule == 'random'){
+      //await this.createRandomGroups(savedProject.id);
+      await this.assignUnassignedStudents(savedProject.id)
     }
 
     return savedProject;
@@ -62,10 +64,10 @@ export class ProjectService {
     return await this.projectRepository.findOne({
       where: { id },
       relations: [
-        'teacher', 
-        'promotion', 
-        'promotion.students', 
-        'groups', 
+        'teacher',
+        'promotion',
+        'promotion.students',
+        'groups',
         'groups.members',
         'deliverables',
         'deliverables.submissions',
@@ -82,6 +84,72 @@ export class ProjectService {
     });
   }
 
+  async getProjectsByIdForStudent(studentId: number, projectId: number, options?: { skip?: number; take?: number }): Promise<Project> {
+    const skip = options?.skip;
+    const take = options?.take;
+
+    try {
+      const qb = this.projectRepository
+          .createQueryBuilder('project')
+          .leftJoinAndSelect('project.teacher', 'teacher')
+
+          .leftJoinAndSelect('project.deliverables', 'deliverables')
+          .leftJoinAndSelect('deliverables.validationRules', 'deliverableValidationRules')
+          .leftJoinAndSelect('deliverables.submissions', 'deliverableSubmissions')
+          .leftJoinAndSelect('deliverableSubmissions.group', 'submissionGroup')
+
+          // ✅ Tous les groupes
+          .leftJoinAndSelect('project.groups', 'groups')
+          .leftJoinAndSelect('groups.members', 'members')
+          .leftJoinAndSelect('groups.deliverableSubmissions', 'groupDeliverableSubmissions')
+          .leftJoinAndSelect('groupDeliverableSubmissions.deliverable', 'gdsDeliverable')
+          .leftJoinAndSelect('groups.reports', 'groupReports')
+          .leftJoinAndSelect('groupReports.sections', 'groupReportSections')
+          .leftJoinAndSelect('groups.defenses', 'groupDefenses')
+          .leftJoinAndSelect('groups.grades', 'groupGrades')
+
+          .leftJoinAndSelect('project.reports', 'projectReports')
+          .leftJoinAndSelect('projectReports.sections', 'projectReportSections')
+          .leftJoinAndSelect('projectReports.group', 'reportGroup')
+
+          .leftJoinAndSelect('project.defenses', 'defenses')
+          .leftJoinAndSelect('project.gradingGrids', 'gradingGrids')
+
+          .where('project.status = :status', { status: 'visible' })
+          .andWhere('project.id = :projectId', { projectId })
+
+          // ✅ Vérifier l'accès via une sous-requête EXISTS
+          .andWhere(qb => {
+            const subQuery = qb
+                .subQuery()
+                .select('1')
+                .from('group', 'g')
+                .innerJoin('g.members', 'm')
+                .where('g.projectId = project.id')
+                .andWhere('m.id = :studentId')
+                .getQuery()
+            return `EXISTS ${subQuery}`
+          })
+          .setParameter('studentId', studentId)
+
+          .orderBy('project.createdAt', 'DESC')
+
+      if (typeof skip === 'number') qb.skip(skip)
+      if (typeof take === 'number') qb.take(take)
+
+      const project = await qb.getOne()
+
+      if (!project) {
+        throw new Error('Project not found or student not authorized')
+      }
+
+      return project
+
+    } catch (err) {
+      throw err
+    }
+  }
+
   async getProjectsByTeacher(teacherId: number): Promise<Project[]> {
     return await this.projectRepository.find({
       where: { teacher: { id: teacherId } },
@@ -90,18 +158,67 @@ export class ProjectService {
     });
   }
 
-  async getProjectsByStudent(studentId: number): Promise<Project[]> {
-    return await this.projectRepository
-      .createQueryBuilder('project')
-      .innerJoin('project.promotion', 'promotion')
-      .innerJoin('promotion.students', 'student')
-      .leftJoinAndSelect('project.deliverables', 'deliverables')
-      .leftJoinAndSelect('project.groups', 'groups')
-      .leftJoinAndSelect('groups.members', 'members')
-      .where('student.id = :studentId', { studentId })
-      .andWhere('project.status = :status', { status: 'visible' })
-      .orderBy('project.createdAt', 'DESC')
-      .getMany();
+  async getProjectsByStudent(studentId: number, options?: { skip?: number; take?: number }): Promise<Project[]> {
+    const skip = options?.skip;
+    const take = options?.take;
+    try {
+      const qb = this.projectRepository
+          .createQueryBuilder('project')
+
+          // relations principales
+          .leftJoinAndSelect('project.promotion', 'promotion')
+          .leftJoinAndSelect('promotion.students', 'promotionStudents')
+
+          .leftJoinAndSelect('project.teacher', 'teacher')
+
+          .leftJoinAndSelect('project.deliverables', 'deliverables')
+          .leftJoinAndSelect('deliverables.validationRules', 'deliverableValidationRules')
+          .leftJoinAndSelect('deliverables.submissions', 'deliverableSubmissions')
+          .leftJoinAndSelect('deliverableSubmissions.group', 'submissionGroup') // si besoin d'accéder au groupe depuis la soumission
+
+          // groups et sous-relations
+          .leftJoinAndSelect('project.groups', 'groups')
+          .leftJoinAndSelect('groups.members', 'members')
+          .leftJoinAndSelect('groups.deliverableSubmissions', 'groupDeliverableSubmissions')
+          .leftJoinAndSelect('groupDeliverableSubmissions.deliverable', 'gdsDeliverable')
+          .leftJoinAndSelect('groups.reports', 'groupReports')
+          .leftJoinAndSelect('groupReports.sections', 'groupReportSections')
+          .leftJoinAndSelect('groups.defenses', 'groupDefenses')
+          .leftJoinAndSelect('groups.grades', 'groupGrades')
+
+          // reports liés au projet (indépendants des groupes) et leurs sections
+          .leftJoinAndSelect('project.reports', 'projectReports')
+          .leftJoinAndSelect('projectReports.sections', 'projectReportSections')
+
+          // defenses et gradingGrids au niveau du projet
+          .leftJoinAndSelect('project.defenses', 'defenses')
+          .leftJoinAndSelect('project.gradingGrids', 'gradingGrids')
+
+          // Filtre : projet visible
+          .where('project.status = :status', { status: 'visible' })
+
+          // Filtre : l'étudiant appartient soit à la promotion, soit à un groupe du projet
+          .andWhere(
+              new Brackets(qb => {
+                qb.where('promotionStudents.id = :studentId', { studentId })
+                    .orWhere('members.id = :studentId', { studentId });
+              })
+          )
+
+          // éviter doublons
+          .distinct(true)
+
+          // tri
+          .orderBy('project.createdAt', 'DESC')
+
+      // pagination si fournie (optionnel)
+      if (typeof skip === 'number') qb.skip(skip)
+      if (typeof take === 'number') qb.take(take)
+
+      return await qb.getMany()
+    } catch (err) {
+      throw err
+    }
   }
 
   async generateRandomGroups(projectId: number): Promise<Group[]> {

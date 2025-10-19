@@ -30,14 +30,17 @@ export class ReportController {
    *                 type: integer
    *               title:
    *                 type: string
+   *               description:
+   *                 type: string
    *     responses:
    *       201:
    *         description: Report created successfully
    */
   async createReport(req: Request, res: Response) {
     try {
-      const { projectId, groupId, title } = req.body;
-      const report = await this.reportService.createReport(projectId, groupId, title);
+      const { projectId, groupId, title,description } = req.body;
+      console.log(projectId, groupId, title);
+      const report = await this.reportService.createReport(projectId, groupId, title,description);
       res.status(201).json(report);
     } catch (error) {
       res.status(500).json({ error: 'Internal Server Error' });

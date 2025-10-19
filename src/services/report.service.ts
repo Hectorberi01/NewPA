@@ -11,11 +11,12 @@ export class ReportService {
     this.sectionRepository = AppDataSource.getRepository(ReportSection);
   }
 
-  async createReport(projectId: number, groupId: number, title: string): Promise<Report> {
+  async createReport(projectId: number, groupId: number, title: string,description: string): Promise<Report> {
     const report = this.reportRepository.create({
       title,
       project: { id: projectId },
-      group: { id: groupId }
+      group: { id: groupId },
+      description:description
     });
 
     return await this.reportRepository.save(report);

@@ -132,8 +132,6 @@ export class Project {
   @ManyToOne(() => User, user => user.teacherProjects)
   teacher!: User;
 
-  // @ManyToOne(() => Promotion, promotion => promotion.projects)
-  // promotion!: Promotion;
   @ManyToOne(() => Promotion, promo => promo.projects, { nullable: true })
   @JoinColumn({ name: 'promotionId' })   // 🔒 force le nom
   promotion!: Promotion;
