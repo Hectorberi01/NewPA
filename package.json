@@ -40,6 +40,7 @@
     "fast-levenshtein": "^3.0.0",
     "google-auth-library": "^10.3.0",
     "helmet": "^8.1.0",
+    "java-parser": "^3.0.1",
     "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
     "mammoth": "^1.11.0",

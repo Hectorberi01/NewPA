@@ -1,15 +1,15 @@
-// Barrel exports
 export * from './fingerprint.types';
 export * from './text-fingerprint.service';
 export * from './ast-fingerprint.service';
-
+export * from './java-ast-fingerprint.service';
 // Helpers pratiques
 import { ExtractedFile, Fingerprint, FingerprintService } from './fingerprint.types';
 import { TextFingerprintService } from './text-fingerprint.service';
 import { AstFingerprintService } from './ast-fingerprint.service';
+import { JavaAstFingerprintService } from './java-ast-fingerprint.service';
 
 export function defaultFingerprintServices(): FingerprintService[] {
-  return [new TextFingerprintService(5), new AstFingerprintService(7)]; // k par défaut
+  return [new TextFingerprintService(5), new AstFingerprintService(7), new JavaAstFingerprintService(7)]; // k par défaut
 }
 
 export async function buildFingerprints(
