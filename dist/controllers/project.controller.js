@@ -28,6 +28,7 @@ class ProjectController {
         try {
             const teacherId = req.user?.id;
             const projectData = { ...req.body, teacher: { id: teacherId } };
+            console.log("Creating project with data:", projectData);
             const project = await this.projectService.createProject(projectData);
             res.status(201).json(project);
         }
@@ -261,6 +262,87 @@ class ProjectController {
         }
         catch (error) {
             res.status(500).json({ error: 'Internal Server Error' });
+        }
+    }
+    /**
+     * @swagger
+     * /api/projects/{projectId}/groups:
+     *   put:
+     *     summary: Save grouping (assign students to groups) for a project
+     *     tags: [Projects]
+     *     security:
+     *       - bearerAuth: []
+     *     parameters:
+     *       - in: path
+     *         name: projectId
+     *         required: true
+     *         schema: { type: integer }
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             required: [groups, unassignedIds]
+     *             properties:
+     *               groups:
+     *                 type: array
+     *                 items:
+     *                   type: object
+     *                   required: [id, memberIds]
+     *                   properties:
+     *                     id: { type: integer }
+     *                     memberIds:
+     *                       type: array
+     *                       items: { type: integer }
+     *               unassignedIds:
+     *                 type: array
+     *                 items: { type: integer }
+     *           examples:
+     *             example:
+     *               value:
+     *                 groups:
+     *                   - id: 1
+     *                     memberIds: [12, 15, 27]
+     *                   - id: 2
+     *                     memberIds: [31]
+     *                 unassignedIds: [8, 9]
+     *     responses:
+     *       200:
+     *         description: Grouping saved
+     *       400:
+     *         description: Validation error (duplicates, capacity exceeded, etc.)
+     *       404:
+     *         description: Project not found
+     */
+    async saveGrouping(req, res) {
+        try {
+            const projectId = Number(req.params.projectId);
+            if (!Number.isFinite(projectId)) {
+                return res.status(400).json({ message: "projectId invalide" });
+            }
+            const body = req.body;
+            if (!body || !Array.isArray(body.groups) || !Array.isArray(body.unassignedIds)) {
+                return res.status(400).json({ message: "Payload invalide" });
+            }
+            //const service =  new ProjectsService(AppDataSource);
+            //const result = await service.saveGrouping(projectId, body);
+            const result = await this.projectService.saveGrouping(projectId, body);
+            return res.status(200).json({
+                message: "Répartition enregistrée",
+                ...result, // { updatedGroups, affectedLinks }
+            });
+        }
+        catch (err) {
+            if (err?.code === "CAPACITY_EXCEEDED") {
+                return res.status(400).json({ message: err.message, details: err.details });
+            }
+            if (err?.code === "VALIDATION_ERROR") {
+                return res.status(400).json({ message: err.message, details: err.details });
+            }
+            if (err?.code === "NOT_FOUND") {
+                return res.status(404).json({ message: err.message });
+            }
         }
     }
 }

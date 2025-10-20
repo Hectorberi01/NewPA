@@ -2,8 +2,8 @@ import "reflect-metadata";
 import { DataSource } from "typeorm";
 import * as dotenv from "dotenv";
 import { U } from "@faker-js/faker/dist/airline-CLphikKp";
-import { CriterionGrade, Defense, Deliverable, DeliverableRule, DeliverableSubmission, Grade, GradingCriterion, GradingGrid, Group, Project,Report, Promotion, ReportSection, User } from "../entities/Entities";
-import { fa } from "@faker-js/faker/.";
+import { CriterionGrade, Defense, Deliverable, DeliverableRule, DeliverableSubmission, Grade, GradingCriterion, GradingGrid, Group, Project,Report, Promotion, ReportSection, User, SimilarityResult, SubmissionFingerprint } from "../entities/Entities";
+import { fa, tr } from "@faker-js/faker/.";
 dotenv.config();
 console.log('Connecting to database with config:')
 
@@ -18,7 +18,8 @@ export const AppDataSource = new DataSource({
     logging: true,
     migrationsRun: true,
     entities: [User, Project, Promotion,Group,Deliverable,DeliverableRule,DeliverableSubmission,Report,
-      ReportSection, Defense,GradingGrid,GradingCriterion,Grade,CriterionGrade
+      ReportSection, Defense,GradingGrid,GradingCriterion,Grade,CriterionGrade ,    SubmissionFingerprint,   // 👈 ajoute bien celle-ci !
+    SimilarityResult,      
     ],
     migrations: ["src/migrations/*.ts"],
     subscribers: ["src/subscribers/*.ts"],

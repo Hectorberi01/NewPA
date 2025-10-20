@@ -20,6 +20,8 @@ router.post('/', authMiddleware, requireTeacher, validateCreatePromotion, promot
 router.get('/my', authMiddleware, requireTeacher, promotionController.getMyPromotions.bind(promotionController));
 router.post('/:id/students', authMiddleware, requireTeacher, promotionController.addStudents.bind(promotionController));
 
+router.put('/:id', authMiddleware, requireTeacher, validateCreatePromotion, promotionController.updatePromotion.bind(promotionController));
+router.delete('/:id', authMiddleware, requireTeacher, promotionController.deletePromotion.bind(promotionController));
 
 router.post('/:id/students/import', 
   authMiddleware, 
@@ -27,5 +29,6 @@ router.post('/:id/students/import',
   uploadMiddleware.single('file'), // Limite à 10MB par défaut
   promotionController.addStudentsFromFile.bind(promotionController)
 );
+router.delete('/:id/students/:studentId', authMiddleware, requireTeacher, promotionController.deleteStudent.bind(promotionController));
 
 export default router;

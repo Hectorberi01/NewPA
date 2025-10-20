@@ -6,7 +6,7 @@ const auth_middleware_1 = require("../middleware/auth.middleware");
 const router = (0, express_1.Router)();
 const defenseController = new defense_controller_1.DefenseController();
 router.post('/projects/:projectId/schedule', auth_middleware_1.authMiddleware, auth_middleware_1.requireTeacher, defenseController.scheduleDefenses.bind(defenseController));
-router.put('/projects/:projectId/reorder', auth_middleware_1.authMiddleware, auth_middleware_1.requireTeacher, defenseController.updateDefenseOrder.bind(defenseController));
+router.put('/projects/:projectId/reorder', auth_middleware_1.authMiddleware, auth_middleware_1.requireTeacher, defenseController.updateOrder.bind(defenseController));
 router.get('/projects/:projectId/schedule/pdf', auth_middleware_1.authMiddleware, auth_middleware_1.requireTeacher, defenseController.downloadSchedulePDF.bind(defenseController));
 router.get('/projects/:projectId/attendance/pdf', auth_middleware_1.authMiddleware, auth_middleware_1.requireTeacher, defenseController.downloadAttendancePDF.bind(defenseController));
 exports.default = router;

@@ -69,13 +69,15 @@ class PromotionController {
      * @swagger
      * /api/promotions/{id}/students:
      *   post:
-     *     summary: Add students to promotion
-     *     tags: [Promotions]
+     *     summary: Add students to a promotion
+     *     tags:
+     *       - Promotions
      *     security:
      *       - bearerAuth: []
      *     parameters:
      *       - in: path
      *         name: id
+     *         description: Promotion ID
      *         required: true
      *         schema:
      *           type: integer
@@ -85,20 +87,59 @@ class PromotionController {
      *         application/json:
      *           schema:
      *             type: object
+     *             required:
+     *               - students
      *             properties:
-     *               emails:
+     *               students:
      *                 type: array
+     *                 minItems: 1
      *                 items:
-     *                   type: string
+     *                   type: object
+     *                   required: [email, firstName, lastName]
+     *                   properties:
+     *                     email:
+     *                       type: string
+     *                       format: email
+     *                     firstName:
+     *                       type: string
+     *                     lastName:
+     *                       type: string
+     *           examples:
+     *             example:
+     *               value:
+     *                 students:
+     *                   - email: jane.doe@example.com
+     *                     firstName: Jane
+     *                     lastName: Doe
+     *                   - email: john.smith@example.com
+     *                     firstName: John
+     *                     lastName: Smith
      *     responses:
      *       200:
      *         description: Students added successfully
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 addedCount:
+     *                   type: integer
+     *                 duplicates:
+     *                   type: array
+     *                   items:
+     *                     type: string
+     *       400:
+     *         description: Invalid request body
+     *       401:
+     *         description: Unauthorized (missing/invalid token)
+     *       404:
+     *         description: Promotion not found
      */
     async addStudents(req, res) {
         try {
             const promotionId = parseInt(req.params.id);
-            const { emails } = req.body;
-            const promotion = await this.promotionService.addStudentsToPromotion(promotionId, emails);
+            const data = req.body;
+            const promotion = await this.promotionService.addStudentsToPromotion(promotionId, data);
             res.json(promotion);
         }
         catch (error) {
@@ -303,6 +344,56 @@ class PromotionController {
             res.status(500).json({
                 error: error || 'Erreur lors de l\'import des étudiants'
             });
+        }
+    }
+    async updatePromotion(req, res) {
+        try {
+            const promotionId = parseInt(req.params.id);
+            const promotion = await this.promotionService.updatePromotion(promotionId, req.body);
+            res.json(promotion);
+        }
+        catch (error) {
+            res.status(500).json({ error: 'Internal Server Error' });
+        }
+    }
+    async deletePromotion(req, res) {
+        try {
+            const promotionId = parseInt(req.params.id);
+            await this.promotionService.deletePromotion(promotionId);
+            res.status(204).send();
+        }
+        catch (error) {
+            res.status(500).json({ error: 'Internal Server Error' });
+        }
+    }
+    async deleteStudent(req, res) {
+        try {
+            const promotionId = parseInt(req.params.id);
+            const studentId = parseInt(req.params.studentId);
+            const teacherId = req.user?.id;
+            // Vérifier les paramètres
+            if (isNaN(promotionId) || isNaN(studentId)) {
+                return res.status(400).json({ error: 'ID invalide' });
+            }
+            await this.promotionService.removeStudentFromPromotion(promotionId, studentId, teacherId);
+            res.status(200).json({
+                message: "Étudiant supprimé avec succès",
+                studentId: studentId
+            });
+        }
+        catch (error) {
+            console.error("Erreur lors de la suppression de l'étudiant:", error);
+            // Gestion des erreurs spécifiques
+            if (error.message === 'Promotion non trouvée' || error.message === 'Promotion not found') {
+                return res.status(404).json({ error: 'Promotion non trouvée' });
+            }
+            if (error.message === 'Étudiant non trouvé dans cette promotion') {
+                return res.status(404).json({ error: 'Étudiant non trouvé dans cette promotion' });
+            }
+            if (error.message === 'Unauthorized' || error.message?.includes('autorisé')) {
+                return res.status(403).json({ error: "Vous n'êtes pas autorisé à modifier cette promotion" });
+            }
+            res.status(500).json({ error: 'Erreur lors de la suppression de l\'étudiant' });
         }
     }
 }

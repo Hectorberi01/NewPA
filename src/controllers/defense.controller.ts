@@ -42,21 +42,81 @@ export class DefenseController {
    *       201:
    *         description: Defenses scheduled successfully
    */
-  async scheduleDefenses(req: Request, res: Response) {
-    try {
-      const projectId = parseInt(req.params.projectId);
-      const { startDateTime, durationPerGroup, location } = req.body;
-      const defenses = await this.defenseService.scheduleDefenses(
+async scheduleDefenses(req: Request, res: Response) {
+  try {
+    const projectId = parseInt(req.params.projectId);
+    
+    // Destructurer les deux modes possibles
+    const { startDateTime, endDateTime, durationPerGroup, location } = req.body;
+
+    // Validation de base
+    if (!projectId || isNaN(projectId)) {
+      return res.status(400).json({ error: 'projectId invalide' });
+    }
+
+    if (!startDateTime || !location) {
+      return res.status(400).json({ 
+        error: 'startDateTime et location sont requis' 
+      });
+    }
+
+    // Vérifier qu'on a au moins un des deux modes
+    if (!durationPerGroup && !endDateTime) {
+      return res.status(400).json({ 
+        error: 'Fournissez soit durationPerGroup, soit endDateTime' 
+      });
+    }
+
+    // Déterminer le mode et passer les données au service
+    let result;
+    
+    if (durationPerGroup && durationPerGroup > 0) {
+      // MODE 1: Durée fixe
+      result = await this.defenseService.scheduleDefenses(
         projectId,
         new Date(startDateTime),
         durationPerGroup,
-        location
+        location,
+        'fixed_duration'
       );
-      res.status(201).json(defenses);
-    } catch (error) {
-      res.status(500).json({ error: 'Internal Server Error' });
+    } else if (endDateTime) {
+      // MODE 2: Plage horaire
+      result = await this.defenseService.scheduleDefenses(
+        projectId,
+        new Date(startDateTime),
+        null, // durationPerGroup = null
+        location,
+        'time_range',
+        new Date(endDateTime)
+      );
     }
+
+    return res.status(201).json({
+      message: 'Défenses planifiées avec succès',
+      data: result,
+      mode: result.mode
+    });
+    
+  } catch (error) {
+    console.error('Erreur scheduleDefenses:', error);
+    
+    // Gérer les erreurs spécifiques
+    if (error instanceof Error) {
+      if (error.message.includes('Projet introuvable')) {
+        return res.status(404).json({ error: error.message });
+      }
+      if (error.message.includes('Aucun groupe')) {
+        return res.status(400).json({ error: error.message });
+      }
+      if (error.message.includes('Durée')) {
+        return res.status(400).json({ error: error.message });
+      }
+      return res.status(400).json({ error: error.message });
+    }
+    
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
+}
 
   /**
    * @swagger

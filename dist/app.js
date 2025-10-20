@@ -90,7 +90,7 @@ app.use((0, compression_1.default)());
 // Rate limiting
 const limiter = (0, express_rate_limit_1.default)({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limite chaque IP à 100 requêtes par fenêtre
+    max: 300, // limite chaque IP à 300 requêtes par fenêtre
     message: {
         error: 'Trop de requêtes depuis cette IP, réessayez dans 15 minutes.'
     },
@@ -99,11 +99,17 @@ const limiter = (0, express_rate_limit_1.default)({
 });
 app.use('/api/', limiter);
 // CORS configuration
+// app.use(cors({
+//   origin: process.env.NODE_ENV === 'production' 
+//     ? [process.env.FRONTEND_URL || 'https://app.student-projects.com']
+//     : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:4200'],
+//   credentials: true,
+//   optionsSuccessStatus: 200
+// }));
 app.use((0, cors_1.default)({
-    origin: process.env.NODE_ENV === 'production'
-        ? [process.env.FRONTEND_URL || 'https://app.student-projects.com']
-        : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:4200'],
-    credentials: true,
+    origin: '*', // Autoriser toutes les origines (à restreindre en production)
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
     optionsSuccessStatus: 200
 }));
 // ===== CONFIGURATION SPÉCIFIQUE POUR API-DOCS =====

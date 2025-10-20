@@ -17,4 +17,5 @@ router.delete('/:id', auth_middleware_1.authMiddleware, auth_middleware_1.requir
 router.post('/:id/groups/generate', auth_middleware_1.authMiddleware, auth_middleware_1.requireTeacher, projectController.generateRandomGroups.bind(projectController));
 router.post('/:id/groups/manual', auth_middleware_1.authMiddleware, auth_middleware_1.requireTeacher, projectController.generateManualGroups.bind(projectController));
 router.post('/:id/assign-unassigned', auth_middleware_1.authMiddleware, auth_middleware_1.requireTeacher, projectController.assignUnassignedStudents.bind(projectController));
+router.put("/:projectId/groups", auth_middleware_1.authMiddleware, projectController.saveGrouping.bind(projectController));
 exports.default = router;

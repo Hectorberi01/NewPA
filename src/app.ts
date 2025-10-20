@@ -63,7 +63,7 @@ app.use(compression());
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limite chaque IP à 100 requêtes par fenêtre
+  max: 300, // limite chaque IP à 300 requêtes par fenêtre
   message: {
     error: 'Trop de requêtes depuis cette IP, réessayez dans 15 minutes.'
   },

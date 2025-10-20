@@ -46,6 +46,16 @@ const google_auth_library_1 = require("google-auth-library");
 const dotenv = __importStar(require("dotenv"));
 dotenv.config();
 const client = new google_auth_library_1.OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const TOKEN_CONFIG = {
+    access: {
+        secret: process.env.JWT_SECRET || 'default_secret',
+        expiresIn: process.env.JWT_EXPIRES_IN || '15m' // Réduit à 15 minutes pour plus de sécurité
+    },
+    refresh: {
+        secret: process.env.JWT_REFRESH_SECRET || 'refresh_secret',
+        expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d'
+    }
+};
 class AuthService {
     constructor() {
         this.userRepository = data_source_1.AppDataSource.getRepository(Entities_1.User);

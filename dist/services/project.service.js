@@ -1,11 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ProjectService = void 0;
+const typeorm_1 = require("typeorm");
 const data_source_1 = require("../database/data-source");
 const Entities_1 = require("../entities/Entities");
 const email_service_1 = require("../utils/email.service");
 class ProjectService {
     constructor() {
+        this.ds = data_source_1.AppDataSource;
         this.projectRepository = data_source_1.AppDataSource.getRepository(Entities_1.Project);
         this.groupRepository = data_source_1.AppDataSource.getRepository(Entities_1.Group);
         this.userRepository = data_source_1.AppDataSource.getRepository(Entities_1.User);
@@ -18,6 +20,9 @@ class ProjectService {
         // Si le projet est visible, notifier les étudiants
         if (savedProject.status === 'visible') {
             await this.notifyStudentsNewProject(savedProject);
+        }
+        if (savedProject.groupFormationRule === 'random') {
+            await this.createRandomGroups(savedProject.id);
         }
         return savedProject;
     }
@@ -47,16 +52,23 @@ class ProjectService {
                 'groups',
                 'groups.members',
                 'deliverables',
+                'deliverables.submissions',
+                'deliverables.submissions.group',
+                'deliverables.validationRules',
                 'reports',
+                'reports.sections',
+                'reports.group',
                 'defenses',
-                'gradingGrids'
+                'defenses.group',
+                'gradingGrids',
+                'gradingGrids.criteria'
             ]
         });
     }
     async getProjectsByTeacher(teacherId) {
         return await this.projectRepository.find({
             where: { teacher: { id: teacherId } },
-            relations: ['promotion', 'groups', 'deliverables'],
+            relations: ['promotion', 'promotion.students', 'groups', 'deliverables'],
             order: { createdAt: 'DESC' }
         });
     }
@@ -74,20 +86,24 @@ class ProjectService {
             .getMany();
     }
     async generateRandomGroups(projectId) {
+        console.log(`Generating random groups for project ID: ${projectId}`);
         const project = await this.projectRepository.findOne({
             where: { id: projectId },
             relations: ['promotion', 'promotion.students', 'groups']
         });
+        console.log('Project details:', project);
         if (!project)
             throw new Error('Project not found');
         if (project.groupFormationRule !== 'random') {
             throw new Error('Random group generation not allowed for this project');
         }
+        console.log(`Removing existing groups for project "${project}"`);
         // Supprimer les groupes existants
         if (project.groups.length > 0) {
             await this.groupRepository.remove(project.groups);
         }
         const students = project.promotion.students.filter(s => s.isActive);
+        console.log(`Active students in promotion:`, students.map(s => s.id));
         const maxGroupSize = project.maxGroupSize || 4;
         const minGroupSize = project.minGroupSize || 2;
         const groups = [];
@@ -95,6 +111,7 @@ class ProjectService {
         const shuffledStudents = [...students].sort(() => Math.random() - 0.5);
         let currentIndex = 0;
         let groupNumber = 1;
+        console.log(`Generating groups for project "${project}" with ${shuffledStudents.length} students`);
         while (currentIndex < shuffledStudents.length) {
             const remainingStudents = shuffledStudents.length - currentIndex;
             const remainingGroups = Math.ceil(remainingStudents / maxGroupSize);
@@ -105,16 +122,64 @@ class ProjectService {
                 groupSize = Math.ceil(remainingStudents / 2);
             }
             const groupMembers = shuffledStudents.slice(currentIndex, currentIndex + groupSize);
+            console.log(`Forming group ${groupNumber} with members:`, groupMembers.map(m => m.id));
             const group = this.groupRepository.create({
                 name: `Groupe ${groupNumber}`,
                 project,
                 members: groupMembers
             });
+            console.log(`Creating group "${group.name}" with members:`, groupMembers.map(m => m.id));
             groups.push(await this.groupRepository.save(group));
             currentIndex += groupSize;
             groupNumber++;
         }
         return groups;
+    }
+    async createRandomGroups(projectId) {
+        const project = await this.projectRepository.findOne({
+            where: { id: projectId },
+            relations: ['promotion', 'promotion.students', 'groups']
+        });
+        console.log('Project details:', project);
+        if (!project)
+            throw new Error('Project not found');
+        console.log(`Removing existing groups for project "${project}"`);
+        // Supprimer les groupes existants
+        if (project.groups.length > 0) {
+            await this.groupRepository.remove(project.groups);
+        }
+        const students = project.promotion.students.filter(s => s.isActive);
+        console.log(`Active students in promotion:`, students.map(s => s.id));
+        const maxGroupSize = project.maxGroupSize || 4;
+        const minGroupSize = project.minGroupSize || 2;
+        const groups = [];
+        // Mélanger les étudiants
+        const shuffledStudents = [...students].sort(() => Math.random() - 0.5);
+        let currentIndex = 0;
+        let groupNumber = 1;
+        console.log(`Generating groups for project "${project}" with ${shuffledStudents.length} students`);
+        while (currentIndex < shuffledStudents.length) {
+            const remainingStudents = shuffledStudents.length - currentIndex;
+            const remainingGroups = Math.ceil(remainingStudents / maxGroupSize);
+            // Calculer la taille optimale pour ce groupe
+            let groupSize = Math.min(maxGroupSize, remainingStudents);
+            // Éviter d'avoir un dernier groupe trop petit
+            if (remainingGroups === 2 && remainingStudents < minGroupSize + maxGroupSize) {
+                groupSize = Math.ceil(remainingStudents / 2);
+            }
+            const groupMembers = shuffledStudents.slice(currentIndex, currentIndex + groupSize);
+            console.log(`Forming group ${groupNumber} with members:`, groupMembers.map(m => m.id));
+            const group = this.groupRepository.create({
+                name: `Groupe ${groupNumber}`,
+                project,
+            });
+            console.log(`Creating group "${group.name}" with members:`, groupMembers.map(m => m.id));
+            groups.push(await this.groupRepository.save(group));
+            currentIndex += groupSize;
+            groupNumber++;
+        }
+        return groups;
+        //return this.generateRandomGroups(projectId);
     }
     async generateManualGroups(projectId, groupsData) {
         const project = await this.projectRepository.findOne({
@@ -197,6 +262,125 @@ class ProjectService {
             return;
         const emailPromises = project.promotion.students.map(student => this.emailService.sendProjectNotificationEmail(student.email, project.name, project.description));
         await Promise.allSettled(emailPromises);
+    }
+    async saveGrouping(projectId, payload) {
+        const qr = this.ds.createQueryRunner();
+        await qr.connect();
+        await qr.startTransaction();
+        try {
+            // 1) Charger projet + groupes + membres + promo/étudiants (contrôle appartenance)
+            const project = await qr.manager.getRepository(Entities_1.Project).findOne({
+                where: { id: projectId },
+                relations: [
+                    "groups",
+                    "groups.members",
+                    "promotion",
+                    "promotion.students",
+                ],
+            });
+            if (!project) {
+                const err = new Error("Projet introuvable");
+                err.code = "NOT_FOUND";
+                throw err;
+            }
+            const groupsById = new Map();
+            project.groups.forEach((g) => groupsById.set(g.id, g));
+            // 2) Validation de base payload
+            const payloadGroupIds = new Set(payload.groups.map((g) => g.id));
+            // (optionnel) s'assurer que tous les groupes du payload appartiennent au projet
+            const invalidGroupIds = [...payloadGroupIds].filter((id) => !groupsById.has(id));
+            if (invalidGroupIds.length > 0) {
+                const err = new Error("Certains groupes ne font pas partie du projet");
+                err.code = "VALIDATION_ERROR";
+                err.details = { invalidGroupIds };
+                throw err;
+            }
+            // 3) Vérifier l'appartenance des étudiants à la promotion du projet
+            const allowedStudentIds = new Set((project.promotion?.students ?? []).map((s) => s.id));
+            const requestedIds = new Set([
+                ...payload.unassignedIds,
+                ...payload.groups.flatMap((g) => g.memberIds),
+            ]);
+            const outside = [...requestedIds].filter((id) => !allowedStudentIds.has(id));
+            if (outside.length > 0) {
+                const err = new Error("Des étudiants ne sont pas dans la promotion du projet");
+                err.code = "VALIDATION_ERROR";
+                err.details = { studentIdsNotInPromotion: outside };
+                throw err;
+            }
+            // 4) Unicité : un étudiant ne peut être dans deux groupes à la fois
+            const allAssigned = payload.groups.flatMap((g) => g.memberIds);
+            const dupCheck = new Map();
+            const duplicates = [];
+            allAssigned.forEach((sid) => {
+                dupCheck.set(sid, (dupCheck.get(sid) ?? 0) + 1);
+            });
+            dupCheck.forEach((count, sid) => count > 1 && duplicates.push(sid));
+            if (duplicates.length) {
+                const err = new Error("Un étudiant est assigné à plusieurs groupes");
+                err.code = "VALIDATION_ERROR";
+                err.details = { duplicates };
+                throw err;
+            }
+            // 5) Capacité : chaque groupe <= capacity
+            const overCapacity = payload.groups
+                .map((g) => ({ g, entity: groupsById.get(g.id) }))
+                .filter(({ g, entity }) => g.memberIds.length > project.maxGroupSize)
+                .map(({ g, entity }) => ({ groupId: g.id, capacity: project.maxGroupSize, requested: g.memberIds.length }));
+            if (overCapacity.length) {
+                const err = new Error("Capacité de groupe dépassée");
+                err.code = "CAPACITY_EXCEEDED";
+                err.details = { overCapacity };
+                throw err;
+            }
+            // 6) Construire l'état cible + calculer add/remove par groupe
+            const userRepo = qr.manager.getRepository(Entities_1.User);
+            // Charger tous les utilisateurs impliqués (optimisation requête)
+            const allUserIds = [...requestedIds];
+            const users = allUserIds.length
+                ? await userRepo.find({ where: { id: (0, typeorm_1.In)(allUserIds) } })
+                : [];
+            const usersById = new Map(users.map((u) => [u.id, u]));
+            let affectedLinks = 0;
+            // Pour chaque groupe du projet, on aligne l'état avec le payload
+            for (const g of project.groups) {
+                const desired = payload.groups.find((x) => x.id === g.id)?.memberIds ?? [];
+                const current = (g.members ?? []).map((m) => m.id);
+                const toAdd = desired.filter((id) => !current.includes(id));
+                const toRemove = current.filter((id) => !desired.includes(id));
+                if (toAdd.length === 0 && toRemove.length === 0)
+                    continue;
+                // Vérif finale (au cas où) : pas d'IDs inconnus
+                const validAdd = toAdd.filter((id) => usersById.has(id));
+                // Mettre à jour la relation ManyToMany (clear+add partiel)
+                if (toRemove.length) {
+                    await qr.manager
+                        .createQueryBuilder()
+                        .relation(Entities_1.Group, "members")
+                        .of(g.id)
+                        .remove(toRemove);
+                    affectedLinks += toRemove.length;
+                }
+                if (validAdd.length) {
+                    const addUsers = validAdd.map((id) => usersById.get(id));
+                    await qr.manager
+                        .createQueryBuilder()
+                        .relation(Entities_1.Group, "members")
+                        .of(g.id)
+                        .add(addUsers);
+                    affectedLinks += validAdd.length;
+                }
+            }
+            await qr.commitTransaction();
+            return { updatedGroups: project.groups.length, affectedLinks };
+        }
+        catch (e) {
+            await qr.rollbackTransaction();
+            throw e;
+        }
+        finally {
+            await qr.release();
+        }
     }
 }
 exports.ProjectService = ProjectService;

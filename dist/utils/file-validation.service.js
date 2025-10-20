@@ -14,7 +14,7 @@ class FileValidationService {
             if (fileSizeMB > maxSizeMB) {
                 return {
                     valid: false,
-                    error: `File size (${fileSizeMB.toFixed(2)}MB) exceeds maximum allowed size (${maxSizeMB}MB)`
+                    error: `File size (${fileSizeMB?.toFixed(2)}MB) exceeds maximum allowed size (${maxSizeMB}MB)`
                 };
             }
             return { valid: true };

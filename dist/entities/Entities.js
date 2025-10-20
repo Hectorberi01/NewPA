@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CriterionGrade = exports.Grade = exports.GradingCriterion = exports.GradingGrid = exports.Defense = exports.ReportSection = exports.Report = exports.DeliverableSubmission = exports.DeliverableRule = exports.Deliverable = exports.Group = exports.Project = exports.Promotion = exports.User = void 0;
+exports.CriterionGrade = exports.Grade = exports.GradingCriterion = exports.GradingGrid = exports.Defense = exports.ReportSection = exports.Report = exports.SimilarityResult = exports.SubmissionFingerprint = exports.DeliverableSubmission = exports.DeliverableRule = exports.Deliverable = exports.Group = exports.Project = exports.Promotion = exports.User = void 0;
 const typeorm_1 = require("typeorm");
 // ===== ENTITÉS PRINCIPALES =====
 let User = class User {
@@ -373,9 +373,45 @@ __decorate([
     __metadata("design:type", Object)
 ], DeliverableSubmission.prototype, "validationResults", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], DeliverableSubmission.prototype, "fileHash", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'int', nullable: true }),
+    __metadata("design:type", Number)
+], DeliverableSubmission.prototype, "fileSize", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], DeliverableSubmission.prototype, "mime", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'float', nullable: true }),
+    __metadata("design:type", Number)
+], DeliverableSubmission.prototype, "textScore", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'float', nullable: true }),
+    __metadata("design:type", Number)
+], DeliverableSubmission.prototype, "astScore", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'float', nullable: true }),
     __metadata("design:type", Number)
 ], DeliverableSubmission.prototype, "similarityScore", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ default: 'v1' }),
+    __metadata("design:type", String)
+], DeliverableSubmission.prototype, "analysisVersion", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'json', nullable: true }),
+    __metadata("design:type", Object)
+], DeliverableSubmission.prototype, "analysisErrors", void 0);
+__decorate([
+    (0, typeorm_1.CreateDateColumn)(),
+    __metadata("design:type", Date)
+], DeliverableSubmission.prototype, "createdAt", void 0);
+__decorate([
+    (0, typeorm_1.UpdateDateColumn)(),
+    __metadata("design:type", Date)
+], DeliverableSubmission.prototype, "updatedAt", void 0);
 __decorate([
     (0, typeorm_1.ManyToOne)(() => Deliverable, deliverable => deliverable.submissions),
     __metadata("design:type", Deliverable)
@@ -384,9 +420,132 @@ __decorate([
     (0, typeorm_1.ManyToOne)(() => Group, group => group.deliverableSubmissions),
     __metadata("design:type", Group)
 ], DeliverableSubmission.prototype, "group", void 0);
+__decorate([
+    (0, typeorm_1.OneToMany)(() => SubmissionFingerprint, fp => fp.submission),
+    __metadata("design:type", Array)
+], DeliverableSubmission.prototype, "fingerprints", void 0);
+__decorate([
+    (0, typeorm_1.OneToMany)(() => SimilarityResult, r => r.submission1),
+    __metadata("design:type", Array)
+], DeliverableSubmission.prototype, "asLeftResults", void 0);
+__decorate([
+    (0, typeorm_1.OneToMany)(() => SimilarityResult, r => r.submission2),
+    __metadata("design:type", Array)
+], DeliverableSubmission.prototype, "asRightResults", void 0);
 exports.DeliverableSubmission = DeliverableSubmission = __decorate([
     (0, typeorm_1.Entity)()
 ], DeliverableSubmission);
+let SubmissionFingerprint = class SubmissionFingerprint {
+};
+exports.SubmissionFingerprint = SubmissionFingerprint;
+__decorate([
+    (0, typeorm_1.PrimaryGeneratedColumn)(),
+    __metadata("design:type", Number)
+], SubmissionFingerprint.prototype, "id", void 0);
+__decorate([
+    (0, typeorm_1.ManyToOne)(() => DeliverableSubmission, s => s.fingerprints, { onDelete: 'CASCADE' }),
+    (0, typeorm_1.JoinColumn)({ name: 'submissionId' }),
+    __metadata("design:type", DeliverableSubmission)
+], SubmissionFingerprint.prototype, "submission", void 0);
+__decorate([
+    (0, typeorm_1.Index)(),
+    (0, typeorm_1.Column)(),
+    __metadata("design:type", Number)
+], SubmissionFingerprint.prototype, "submissionId", void 0);
+__decorate([
+    (0, typeorm_1.Index)(),
+    (0, typeorm_1.Column)(),
+    __metadata("design:type", String)
+], SubmissionFingerprint.prototype, "filePath", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'enum', enum: ['text', 'ast'] }),
+    __metadata("design:type", String)
+], SubmissionFingerprint.prototype, "kind", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'json' }),
+    __metadata("design:type", Array)
+], SubmissionFingerprint.prototype, "hashes", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'json', nullable: true }),
+    __metadata("design:type", Object)
+], SubmissionFingerprint.prototype, "stats", void 0);
+__decorate([
+    (0, typeorm_1.Index)(),
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], SubmissionFingerprint.prototype, "language", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ default: 'v1' }),
+    __metadata("design:type", String)
+], SubmissionFingerprint.prototype, "version", void 0);
+__decorate([
+    (0, typeorm_1.CreateDateColumn)(),
+    __metadata("design:type", Date)
+], SubmissionFingerprint.prototype, "createdAt", void 0);
+exports.SubmissionFingerprint = SubmissionFingerprint = __decorate([
+    (0, typeorm_1.Entity)(),
+    (0, typeorm_1.Unique)('uniq_fp_per_file_kind', ['submissionId', 'filePath', 'kind', 'version'])
+], SubmissionFingerprint);
+let SimilarityResult = class SimilarityResult {
+};
+exports.SimilarityResult = SimilarityResult;
+__decorate([
+    (0, typeorm_1.PrimaryGeneratedColumn)(),
+    __metadata("design:type", Number)
+], SimilarityResult.prototype, "id", void 0);
+__decorate([
+    (0, typeorm_1.ManyToOne)(() => DeliverableSubmission, { onDelete: 'CASCADE' }),
+    (0, typeorm_1.JoinColumn)({ name: 'submissionId1' }),
+    __metadata("design:type", DeliverableSubmission)
+], SimilarityResult.prototype, "submission1", void 0);
+__decorate([
+    (0, typeorm_1.ManyToOne)(() => DeliverableSubmission, { onDelete: 'CASCADE' }),
+    (0, typeorm_1.JoinColumn)({ name: 'submissionId2' }),
+    __metadata("design:type", DeliverableSubmission)
+], SimilarityResult.prototype, "submission2", void 0);
+__decorate([
+    (0, typeorm_1.Index)(),
+    (0, typeorm_1.Column)(),
+    __metadata("design:type", Number)
+], SimilarityResult.prototype, "submissionId1", void 0);
+__decorate([
+    (0, typeorm_1.Index)(),
+    (0, typeorm_1.Column)(),
+    __metadata("design:type", Number)
+], SimilarityResult.prototype, "submissionId2", void 0);
+__decorate([
+    (0, typeorm_1.Column)(),
+    __metadata("design:type", String)
+], SimilarityResult.prototype, "filePath1", void 0);
+__decorate([
+    (0, typeorm_1.Column)(),
+    __metadata("design:type", String)
+], SimilarityResult.prototype, "filePath2", void 0);
+__decorate([
+    (0, typeorm_1.Column)('float'),
+    __metadata("design:type", Number)
+], SimilarityResult.prototype, "textScore", void 0);
+__decorate([
+    (0, typeorm_1.Column)('float'),
+    __metadata("design:type", Number)
+], SimilarityResult.prototype, "astScore", void 0);
+__decorate([
+    (0, typeorm_1.Index)(),
+    (0, typeorm_1.Column)('float'),
+    __metadata("design:type", Number)
+], SimilarityResult.prototype, "finalScore", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'json', nullable: true }),
+    __metadata("design:type", Object)
+], SimilarityResult.prototype, "details", void 0);
+__decorate([
+    (0, typeorm_1.CreateDateColumn)(),
+    __metadata("design:type", Date)
+], SimilarityResult.prototype, "createdAt", void 0);
+exports.SimilarityResult = SimilarityResult = __decorate([
+    (0, typeorm_1.Entity)(),
+    (0, typeorm_1.Unique)('uniq_pair_filepaths', ['submissionId1', 'submissionId2', 'filePath1', 'filePath2'])
+], SimilarityResult);
 // ===== RAPPORTS =====
 let Report = class Report {
 };

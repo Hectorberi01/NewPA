@@ -18,7 +18,7 @@ interface StudentData {
 export class PromotionService {
   private promotionRepository: Repository<Promotion>;
   private userRepository: Repository<User>;
-
+  // private studentRepository: Repository<Student>; // Si vous avez une entité Student distincte   
   constructor() {
     this.promotionRepository = AppDataSource.getRepository(Promotion);
     this.userRepository = AppDataSource.getRepository(User);
@@ -33,6 +33,11 @@ export class PromotionService {
       where: { teacher: { id: teacherId } },
       relations: ['students', 'projects']
     });
+  }
+
+  async updatePromotion(promotionId: number, promotionData: Partial<Promotion>): Promise<Promotion> {
+    await this.promotionRepository.update(promotionId, promotionData);
+    return await this.promotionRepository.findOne({ where: { id: promotionId } });
   }
 
   async addStudentsToPromotion(promotionId: number, studentsListe: StudentData[]): Promise<Promotion> {
@@ -334,4 +339,43 @@ export class PromotionService {
       console.error('Erreur lors de la suppression du fichier temporaire:', error);
     }
   }
+
+
+
+
+   async deletePromotion(promotionId: number): Promise<void> {
+    const promotion = await this.promotionRepository.findOne({ where: { id: promotionId } });
+    if (!promotion) throw new Error('Promotion not found');
+
+    await this.promotionRepository.remove(promotion);
+  }
+
+async removeStudentFromPromotion(promotionId: number, studentId: number, teacherId: number) {
+  // Vérifier que la promotion existe et appartient au professeur
+  const promotion = await this.promotionRepository.findOne({
+    where: { 
+      id: promotionId,
+      teacher: { id: teacherId }
+    },
+    relations: ['students', 'teacher']
+  });
+
+  if (!promotion) {
+    throw new Error('Promotion non trouvée');
+  }
+
+  // Vérifier que l'étudiant existe dans cette promotion
+  const studentExists = promotion.students.some(student => student.id === studentId);
+
+  if (!studentExists) {
+    throw new Error('Étudiant non trouvé dans cette promotion');
+  }
+
+  // Retirer l'étudiant de la promotion (relation ManyToMany)
+  promotion.students = promotion.students.filter(student => student.id !== studentId);
+  
+  await this.promotionRepository.save(promotion);
+
+  return { success: true, studentId };
+}
 }

@@ -15,6 +15,7 @@ router.get('/:id/submissions', auth_middleware_1.authMiddleware, auth_middleware
 router.get('/:id/summary', auth_middleware_1.authMiddleware, auth_middleware_1.requireTeacher, deliverableController.getSubmissionSummary.bind(deliverableController));
 router.post('/:id/analyze-similarity', auth_middleware_1.authMiddleware, auth_middleware_1.requireTeacher, deliverableController.analyzeSimilarity.bind(deliverableController));
 router.post('/:id/send-reminders', auth_middleware_1.authMiddleware, auth_middleware_1.requireTeacher, deliverableController.sendDeadlineReminders.bind(deliverableController));
+router.get('/submissions/:id/download', auth_middleware_1.authMiddleware, auth_middleware_1.requireTeacher, deliverableController.download.bind(deliverableController));
 // Routes pour les étudiants
 router.post('/:id/submit', auth_middleware_1.authMiddleware, upload_middleware_1.uploadMiddleware.single('file'), deliverableController.submitDeliverable.bind(deliverableController));
 // Routes combinées dans les projets

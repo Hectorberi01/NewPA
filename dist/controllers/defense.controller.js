@@ -2,9 +2,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DefenseController = void 0;
 const defense_service_1 = require("../services/defense.service");
+const data_source_1 = require("../database/data-source");
 class DefenseController {
     constructor() {
-        this.defenseService = new defense_service_1.DefenseService();
+        this.defenseService = new defense_service_1.DefenseService(data_source_1.AppDataSource);
     }
     /**
      * @swagger
@@ -41,12 +42,56 @@ class DefenseController {
     async scheduleDefenses(req, res) {
         try {
             const projectId = parseInt(req.params.projectId);
-            const { startDateTime, durationPerGroup } = req.body;
-            const defenses = await this.defenseService.scheduleDefenses(projectId, new Date(startDateTime), durationPerGroup);
-            res.status(201).json(defenses);
+            // Destructurer les deux modes possibles
+            const { startDateTime, endDateTime, durationPerGroup, location } = req.body;
+            // Validation de base
+            if (!projectId || isNaN(projectId)) {
+                return res.status(400).json({ error: 'projectId invalide' });
+            }
+            if (!startDateTime || !location) {
+                return res.status(400).json({
+                    error: 'startDateTime et location sont requis'
+                });
+            }
+            // Vérifier qu'on a au moins un des deux modes
+            if (!durationPerGroup && !endDateTime) {
+                return res.status(400).json({
+                    error: 'Fournissez soit durationPerGroup, soit endDateTime'
+                });
+            }
+            // Déterminer le mode et passer les données au service
+            let result;
+            if (durationPerGroup && durationPerGroup > 0) {
+                // MODE 1: Durée fixe
+                result = await this.defenseService.scheduleDefenses(projectId, new Date(startDateTime), durationPerGroup, location, 'fixed_duration');
+            }
+            else if (endDateTime) {
+                // MODE 2: Plage horaire
+                result = await this.defenseService.scheduleDefenses(projectId, new Date(startDateTime), null, // durationPerGroup = null
+                location, 'time_range', new Date(endDateTime));
+            }
+            return res.status(201).json({
+                message: 'Défenses planifiées avec succès',
+                data: result,
+                mode: result.mode
+            });
         }
         catch (error) {
-            res.status(500).json({ error: 'Internal Server Error' });
+            console.error('Erreur scheduleDefenses:', error);
+            // Gérer les erreurs spécifiques
+            if (error instanceof Error) {
+                if (error.message.includes('Projet introuvable')) {
+                    return res.status(404).json({ error: error.message });
+                }
+                if (error.message.includes('Aucun groupe')) {
+                    return res.status(400).json({ error: error.message });
+                }
+                if (error.message.includes('Durée')) {
+                    return res.status(400).json({ error: error.message });
+                }
+                return res.status(400).json({ error: error.message });
+            }
+            return res.status(500).json({ error: 'Internal Server Error' });
         }
     }
     /**
@@ -83,17 +128,36 @@ class DefenseController {
      *       200:
      *         description: Defense order updated successfully
      */
-    async updateDefenseOrder(req, res) {
+    async updateOrder(req, res, next) {
         try {
-            const projectId = parseInt(req.params.projectId);
+            const projectId = Number(req.params.projectId);
             const { newOrder } = req.body;
-            const defenses = await this.defenseService.updateDefenseOrder(projectId, newOrder);
-            res.json(defenses);
+            console.log("updateOrder called with:", { projectId, newOrder });
+            //const service = new DefensesService(AppDataSource);
+            const updated = await this.defenseService.updateDefenseOrder(projectId, newOrder);
+            return res.status(200).json({ message: "Ordre mis à jour", defenses: updated });
         }
-        catch (error) {
-            res.status(500).json({ error: 'Internal Server Error' });
+        catch (err) {
+            console.error("updateOrder error:", err);
+            if (err?.code === "BAD_REQUEST" || err?.code === "VALIDATION_ERROR") {
+                return res.status(400).json({ message: err.message, details: err.details ?? null });
+            }
+            if (err?.code === "NOT_FOUND") {
+                return res.status(404).json({ message: err.message });
+            }
+            return next(err);
         }
     }
+    // async updateDefenseOrder(req: Request, res: Response) {
+    //   try {
+    //     const projectId = parseInt(req.params.projectId);
+    //     const { newOrder } = req.body;
+    //     const defenses = await this.defenseService.updateDefenseOrder(projectId, newOrder);
+    //     res.json(defenses);
+    //   } catch (error) {
+    //     res.status(500).json({ error: 'Internal Server Error' });
+    //   }
+    // }
     /**
      * @swagger
      * /api/defenses/projects/{projectId}/schedule/pdf:

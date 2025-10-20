@@ -1,4 +1,7 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DeliverableService = void 0;
 const data_source_1 = require("../database/data-source");
@@ -6,16 +9,27 @@ const Entities_1 = require("../entities/Entities");
 const file_validation_service_1 = require("../utils/file-validation.service");
 const similarity_service_1 = require("../utils/similarity.service");
 const email_service_1 = require("../utils/email.service");
+const path_1 = __importDefault(require("path"));
+const promises_1 = __importDefault(require("fs/promises"));
 class DeliverableService {
     constructor() {
         this.deliverableRepository = data_source_1.AppDataSource.getRepository(Entities_1.Deliverable);
         this.submissionRepository = data_source_1.AppDataSource.getRepository(Entities_1.DeliverableSubmission);
         this.ruleRepository = data_source_1.AppDataSource.getRepository(Entities_1.DeliverableRule);
         this.groupRepository = data_source_1.AppDataSource.getRepository(Entities_1.Group);
+        this.projectRepository = data_source_1.AppDataSource.getRepository(Entities_1.Project);
         this.emailService = new email_service_1.EmailService();
     }
     async createDeliverable(deliverableData) {
+        if (!deliverableData.name || !deliverableData.deadline || deliverableData.allowLateSubmission === undefined || deliverableData.penaltyPerHour === undefined || !deliverableData.projectId) {
+            throw new Error('Missing required fields');
+        }
+        // vrérifier si le projet existe
+        const project = await this.projectRepository.findOne({ where: { id: deliverableData.projectId } });
+        if (!project)
+            throw new Error('Project not found');
         const deliverable = this.deliverableRepository.create(deliverableData);
+        deliverable.project = project;
         return await this.deliverableRepository.save(deliverable);
     }
     async updateDeliverable(id, deliverableData) {
@@ -93,7 +107,9 @@ class DeliverableService {
             where: { deliverable: { id: deliverableId } },
             relations: ['group']
         });
+        console.log('submissions:', submissions);
         const similarityResults = await similarity_service_1.SimilarityService.analyzeSubmissionSimilarity(submissions);
+        console.log('Similarity results:', similarityResults);
         // Sauvegarder les résultats de similarité
         for (const result of similarityResults) {
             const submission1 = submissions.find(s => s.group.id === result.groupId1);
@@ -153,6 +169,36 @@ class DeliverableService {
             }
         }
         await Promise.allSettled(emailPromises);
+    }
+    async downloadSubmission(submissionId) {
+        const submission = await this.submissionRepository.findOne({
+            where: { id: submissionId },
+            relations: ['deliverable', 'group', 'group.members'],
+        });
+        if (!submission)
+            throw new Error('Submission not found');
+        if (!submission.filePath)
+            throw new Error('No file associated with this submission');
+        const UPLOAD_DIR = path_1.default.resolve(process.cwd(), "uploads");
+        const filenameOnDisk = path_1.default.basename(submission.filePath);
+        const fullPath = path_1.default.join(UPLOAD_DIR, filenameOnDisk);
+        // Vérifie que le fichier est bien dans le dossier uploads
+        const resolved = path_1.default.resolve(fullPath);
+        if (!resolved.startsWith(UPLOAD_DIR)) {
+            throw new Error("Invalid file path");
+        }
+        // Vérifier existence
+        try {
+            const st = await promises_1.default.stat(resolved);
+            if (!st.isFile())
+                throw new Error("File not found");
+        }
+        catch (err) {
+            throw new Error("File not found");
+        }
+        // Nom de téléchargement : si tu stockes originalName dans la DB, utilise-le, sinon basename
+        const downloadName = filenameOnDisk;
+        return { filePath: resolved, filename: downloadName };
     }
     async validateSubmission(deliverable, submissionData) {
         const results = {};

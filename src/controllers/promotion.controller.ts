@@ -354,4 +354,61 @@ export class PromotionController {
       });
     }
   }
+
+
+  async updatePromotion(req: Request, res: Response) {
+    try {
+      const promotionId = parseInt(req.params.id);
+      const promotion = await this.promotionService.updatePromotion(promotionId, req.body);
+      res.json(promotion);
+    } catch (error) {
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
+  }
+  async deletePromotion(req: Request, res: Response) {
+    try {
+      const promotionId = parseInt(req.params.id);
+      await this.promotionService.deletePromotion(promotionId);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
+  }
+
+async deleteStudent(req: Request, res: Response) {
+  try {
+    const promotionId = parseInt(req.params.id);
+    const studentId = parseInt(req.params.studentId);
+    const teacherId = (req as any).user?.id;
+
+    // Vérifier les paramètres
+    if (isNaN(promotionId) || isNaN(studentId)) {
+      return res.status(400).json({ error: 'ID invalide' });
+    }
+
+    await this.promotionService.removeStudentFromPromotion(promotionId, studentId, teacherId);
+    
+    res.status(200).json({ 
+      message: "Étudiant supprimé avec succès",
+      studentId: studentId
+    });
+  } catch (error: any) {
+    console.error("Erreur lors de la suppression de l'étudiant:", error);
+    
+    // Gestion des erreurs spécifiques
+    if (error.message === 'Promotion non trouvée' || error.message === 'Promotion not found') {
+      return res.status(404).json({ error: 'Promotion non trouvée' });
+    }
+    if (error.message === 'Étudiant non trouvé dans cette promotion') {
+      return res.status(404).json({ error: 'Étudiant non trouvé dans cette promotion' });
+    }
+    if (error.message === 'Unauthorized' || error.message?.includes('autorisé')) {
+      return res.status(403).json({ error: "Vous n'êtes pas autorisé à modifier cette promotion" });
+    }
+    
+    res.status(500).json({ error: 'Erreur lors de la suppression de l\'étudiant' });
+  }
+}
+
+  
 }

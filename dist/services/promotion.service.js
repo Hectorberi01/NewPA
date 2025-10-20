@@ -44,7 +44,10 @@ const XLSX = __importStar(require("xlsx"));
 const fs_1 = require("fs");
 const password_service_1 = require("../utils/password.service");
 const email_service_1 = require("../utils/email.service");
+const iconv_lite_1 = __importDefault(require("iconv-lite"));
+const strip_bom_stream_1 = __importDefault(require("strip-bom-stream"));
 class PromotionService {
+    // private studentRepository: Repository<Student>; // Si vous avez une entité Student distincte   
     constructor() {
         this.promotionRepository = data_source_1.AppDataSource.getRepository(Entities_1.Promotion);
         this.userRepository = data_source_1.AppDataSource.getRepository(Entities_1.User);
@@ -59,22 +62,32 @@ class PromotionService {
             relations: ['students', 'projects']
         });
     }
-    async addStudentsToPromotion(promotionId, studentEmails) {
+    async updatePromotion(promotionId, promotionData) {
+        await this.promotionRepository.update(promotionId, promotionData);
+        return await this.promotionRepository.findOne({ where: { id: promotionId } });
+    }
+    async addStudentsToPromotion(promotionId, studentsListe) {
         const promotion = await this.promotionRepository.findOne({
             where: { id: promotionId },
             relations: ['students']
         });
         if (!promotion)
             throw new Error('Promotion not found');
+        console.log('Promotion trouvée:', promotion);
         const newStudents = [];
-        for (const email of studentEmails) {
-            let student = await this.userRepository.findOne({ where: { email } });
+        console.log('Liste des étudiants à ajouter:', studentsListe);
+        for (const data of studentsListe) {
+            let student = await this.userRepository.findOne({ where: { email: data.email } });
             if (!student) {
+                const tempPassword = password_service_1.PasswordService.generateTemporaryPassword();
+                const hashedPassword = await password_service_1.PasswordService.hashPassword(tempPassword);
                 student = this.userRepository.create({
-                    email,
-                    firstName: email.split('@')[0],
-                    lastName: '',
-                    role: 'student'
+                    email: data.email,
+                    firstName: data.firstName,
+                    lastName: data.lastName,
+                    role: 'student',
+                    password: hashedPassword,
+                    isActive: true
                 });
                 student = await this.userRepository.save(student);
             }
@@ -143,8 +156,8 @@ class PromotionService {
                             const hashedPassword = await password_service_1.PasswordService.hashPassword(tempPassword);
                             const newStudent = this.userRepository.create({
                                 email: studentData.email,
-                                firstName: studentData.firstName || this.extractFirstNameFromEmail(studentData.email),
-                                lastName: studentData.lastName || '',
+                                firstName: studentData.firstName,
+                                lastName: studentData.lastName,
                                 password: hashedPassword,
                                 role: 'student',
                                 isActive: true
@@ -205,20 +218,27 @@ class PromotionService {
     async parseCSV(filePath) {
         return new Promise((resolve, reject) => {
             const results = [];
+            const pick = (row, ...keys) => (keys.map(k => row[k]).find(v => typeof v === "string" && v.trim()) || "").trim();
             (0, fs_1.createReadStream)(filePath)
+                .pipe(iconv_lite_1.default.decodeStream("win1252"))
+                .pipe((0, strip_bom_stream_1.default)())
                 .pipe((0, csv_parser_1.default)({
-                mapHeaders: ({ header }) => header.toLowerCase().trim()
+                separator: ";", // <- clé: ton CSV est "nom;prenom;email"
+                mapHeaders: ({ header }) => header.replace(/^\uFEFF/, "").toLowerCase().trim(),
+                skipLines: 0,
+                strict: false,
             }))
-                .on('data', (data) => {
-                console.log('Ligne CSV lue:', data);
-                results.push({
-                    email: data.email?.trim(),
-                    firstName: data.prenom || data.firstname || data.first_name,
-                    lastName: data.nom || data.lastname || data.last_name
-                });
+                .on("data", (row) => {
+                // console.log("Row:", row)
+                const email = pick(row, "email", "e-mail", "mail");
+                const firstName = pick(row, "prenom", "firstname", "first_name", "first name");
+                const lastName = pick(row, "nom", "lastname", "last_name", "last name");
+                if (email && (firstName || lastName)) {
+                    results.push({ email, firstName, lastName });
+                }
             })
-                .on('end', () => resolve(results))
-                .on('error', (error) => reject(error));
+                .on("end", () => resolve(results))
+                .on("error", reject);
         });
     }
     parseExcel(filePath) {
@@ -290,6 +310,34 @@ class PromotionService {
         catch (error) {
             console.error('Erreur lors de la suppression du fichier temporaire:', error);
         }
+    }
+    async deletePromotion(promotionId) {
+        const promotion = await this.promotionRepository.findOne({ where: { id: promotionId } });
+        if (!promotion)
+            throw new Error('Promotion not found');
+        await this.promotionRepository.remove(promotion);
+    }
+    async removeStudentFromPromotion(promotionId, studentId, teacherId) {
+        // Vérifier que la promotion existe et appartient au professeur
+        const promotion = await this.promotionRepository.findOne({
+            where: {
+                id: promotionId,
+                teacher: { id: teacherId }
+            },
+            relations: ['students', 'teacher']
+        });
+        if (!promotion) {
+            throw new Error('Promotion non trouvée');
+        }
+        // Vérifier que l'étudiant existe dans cette promotion
+        const studentExists = promotion.students.some(student => student.id === studentId);
+        if (!studentExists) {
+            throw new Error('Étudiant non trouvé dans cette promotion');
+        }
+        // Retirer l'étudiant de la promotion (relation ManyToMany)
+        promotion.students = promotion.students.filter(student => student.id !== studentId);
+        await this.promotionRepository.save(promotion);
+        return { success: true, studentId };
     }
 }
 exports.PromotionService = PromotionService;

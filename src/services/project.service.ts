@@ -31,7 +31,7 @@ export class ProjectService {
     if (savedProject.status === 'visible') {
       await this.notifyStudentsNewProject(savedProject);
     }
-    if(savedProject.groupFormationRule !== 'random'){
+    if(savedProject.groupFormationRule === 'random'){
       await this.createRandomGroups(savedProject.id);
     }
 

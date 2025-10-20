@@ -12,7 +12,8 @@ const data_source_1 = require("./database/data-source");
 const app_1 = __importDefault(require("./app"));
 // Charger les variables d'environnement
 dotenv_1.default.config();
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = process.env.PORT || 4000;
+//const PORT = Number(process.env.PORT) || 3000;
 const HTTPS_PORT = Number(process.env.HTTPS_PORT) || 3443;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const DOMAIN = process.env.DOMAIN || 'test-projet.com';
@@ -66,7 +67,7 @@ async function startServer() {
                     'Cache-Control': 'no-cache'
                 });
                 res.end();
-            }).listen(PORT, '0.0.0.0', () => {
+            }).listen(Number(PORT), '0.0.0.0', () => {
                 console.log(`🔄 HTTP Redirect server running on port ${PORT}`);
                 console.log(`   Redirecting http://${DOMAIN}:${PORT} -> https://${DOMAIN}:${HTTPS_PORT}`);
             });
@@ -74,7 +75,7 @@ async function startServer() {
         else {
             // Mode développement ou pas de certificats - HTTP seulement
             console.log('🌍 Starting HTTP server...');
-            server = http_1.default.createServer(app_1.default).listen(PORT, '0.0.0.0', () => {
+            server = http_1.default.createServer(app_1.default).listen(Number(PORT), '0.0.0.0', () => {
                 const baseUrl = NODE_ENV === 'development'
                     ? `http://localhost:${PORT}`
                     : `http://${DOMAIN}:${PORT}`;
@@ -85,8 +86,6 @@ async function startServer() {
                 console.log(`🔧 Environment: ${NODE_ENV}`);
                 console.log(`🗄️  Database: ${process.env.DB_NAME}@${process.env.DB_HOST}:${process.env.DB_PORT}`);
                 if (!certificatesExist() && NODE_ENV === 'production') {
-                    console.log('⚠️  SSL certificates not found. Running in HTTP mode.');
-                    console.log('   To enable HTTPS, ensure certificates exist at:');
                     console.log(`   /etc/letsencrypt/live/${DOMAIN}/`);
                 }
             });
