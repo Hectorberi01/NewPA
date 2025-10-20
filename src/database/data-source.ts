@@ -15,8 +15,8 @@ export const AppDataSource = new DataSource({
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME || 'projectacademy',
     synchronize: false,
-    logging: true,
-    migrationsRun: true,
+    logging: false,
+    
     entities: [User, Project, Promotion,Group,Deliverable,DeliverableRule,DeliverableSubmission,Report,
       ReportSection, Defense,GradingGrid,GradingCriterion,Grade,CriterionGrade ,    SubmissionFingerprint,   // 👈 ajoute bien celle-ci !
     SimilarityResult,      

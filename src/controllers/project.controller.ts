@@ -58,10 +58,20 @@ export class ProjectController {
    *       200:
    *         description: Project retrieved successfully
    */
-  async getProjectById(req: Request, res: Response) {
+  async getProjectById(req: AuthenticatedRequest, res: Response) {
     try {
+      const userId = req.user?.id;
+      const userRole = req.user?.role;
       const projectId = parseInt(req.params.id);
-      const project = await this.projectService.getProjectById(projectId);
+      let project;
+      console.log(projectId);
+      console.log(userId);
+      console.log(userRole)
+      if(userRole === 'student'){
+        project = await this.projectService.getProjectsByIdForStudent(userId,projectId);
+      }else {
+       project = await this.projectService.getProjectById(projectId);
+      }
 
       if (!project) {
         return res.status(404).json({ error: 'Project not found' });
@@ -131,7 +141,8 @@ export class ProjectController {
       let projects;
       if (userRole === 'teacher') {
         projects = await this.projectService.getProjectsByTeacher(userId);
-      } else {
+      }
+      else {
         projects = await this.projectService.getProjectsByStudent(userId);
       }
 
