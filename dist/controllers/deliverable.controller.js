@@ -145,6 +145,7 @@ class DeliverableController {
      */
     async submitDeliverable(req, res) {
         try {
+            console.log(req.body);
             const deliverableId = parseInt(req.params.id);
             const { groupId, gitUrl } = req.body;
             let submissionData = { gitUrl };

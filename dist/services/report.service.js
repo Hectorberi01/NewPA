@@ -8,11 +8,12 @@ class ReportService {
         this.reportRepository = data_source_1.AppDataSource.getRepository(Entities_1.Report);
         this.sectionRepository = data_source_1.AppDataSource.getRepository(Entities_1.ReportSection);
     }
-    async createReport(projectId, groupId, title) {
+    async createReport(projectId, groupId, title, description) {
         const report = this.reportRepository.create({
             title,
             project: { id: projectId },
-            group: { id: groupId }
+            group: { id: groupId },
+            description: description
         });
         return await this.reportRepository.save(report);
     }

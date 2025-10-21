@@ -160,7 +160,8 @@ export class PromotionService {
                 lastName: studentData.lastName,
                 password: hashedPassword,
                 role: 'student',
-                isActive: true
+                isActive: true,
+                isTemporaryPassword: true
               });
 
               console.log('Création du nouvel étudiant:', newStudent);
@@ -193,11 +194,11 @@ export class PromotionService {
 
       return {
         promotion,
-        summary: {
+          summary: {
           totalProcessed,
           newStudents: newStudentsCount,
           existingStudents: existingStudentsCount,
-          errors
+          errors,
         }
       };
 

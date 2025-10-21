@@ -38,9 +38,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
-const helmet_1 = __importDefault(require("helmet"));
-const compression_1 = __importDefault(require("compression"));
-const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const routes_1 = __importDefault(require("./routes"));
 const swagger_config_1 = require("./swagger/swagger.config");
 const error_middleware_1 = require("./middleware/error.middleware");
@@ -72,12 +69,12 @@ app.get('/api-docs/swagger.json', (req, res) => {
 });
 // ===== MIDDLEWARES DE SÉCURITÉ =====
 // Configuration Helmet globale (sans COOP)
-app.use((0, helmet_1.default)({
-    hsts: false, // HSTS sera géré par Nginx
-    contentSecurityPolicy: false, // CSP sera définie spécifiquement
-    crossOriginOpenerPolicy: false, // COOP sera géré manuellement
-    originAgentCluster: false,
-}));
+// app.use(helmet({
+//   hsts: false,
+//   contentSecurityPolicy: false,     // CSP sera définie spécifiquement
+//   crossOriginOpenerPolicy: false,   // COOP sera géré manuellement
+//   originAgentCluster: false,
+// }));
 // ===== MIDDLEWARE COOP CONDITIONNEL =====
 app.use((req, res, next) => {
     if (isHttps(req)) {
@@ -86,18 +83,19 @@ app.use((req, res, next) => {
     }
     next();
 });
-app.use((0, compression_1.default)());
-// Rate limiting
-const limiter = (0, express_rate_limit_1.default)({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 300, // limite chaque IP à 300 requêtes par fenêtre
-    message: {
-        error: 'Trop de requêtes depuis cette IP, réessayez dans 15 minutes.'
-    },
-    standardHeaders: true,
-    legacyHeaders: false,
-});
-app.use('/api/', limiter);
+//app.use(compression());
+// // Rate limiting
+// const limiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: 100, // limite chaque IP à 100 requêtes par fenêtre
+//   message: {
+//     error: 'Trop de requêtes depuis cette IP, réessayez dans 15 minutes.'
+//   },
+//   standardHeaders: true,
+//   legacyHeaders: false,
+// });
+//
+// app.use('/api/', limiter);
 // CORS configuration
 // app.use(cors({
 //   origin: process.env.NODE_ENV === 'production' 
@@ -113,24 +111,24 @@ app.use((0, cors_1.default)({
     optionsSuccessStatus: 200
 }));
 // ===== CONFIGURATION SPÉCIFIQUE POUR API-DOCS =====
-app.use("/api-docs", (0, helmet_1.default)({
-    hsts: false,
-    contentSecurityPolicy: {
-        useDefaults: false,
-        directives: {
-            "default-src": ["'self'"],
-            "script-src": ["'self'", "'unsafe-inline'"],
-            "style-src": ["'self'", "'unsafe-inline'"],
-            "img-src": ["'self'", "data:", "https:"],
-            "font-src": ["'self'", "data:"],
-            "object-src": ["'none'"],
-            "connect-src": ["'self'"]
-        }
-    },
-    // COOP déjà géré par le middleware global
-    crossOriginOpenerPolicy: false,
-    originAgentCluster: false
-}));
+// app.use("/api-docs", helmet({
+//   hsts: false,
+//   contentSecurityPolicy: {
+//     useDefaults: false,
+//     directives: {
+//       "default-src": ["'self'"],
+//       "script-src": ["'self'", "'unsafe-inline'"],
+//       "style-src": ["'self'", "'unsafe-inline'"],
+//       "img-src": ["'self'", "data:", "https:"],
+//       "font-src": ["'self'", "data:"],
+//       "object-src": ["'none'"],
+//       "connect-src": ["'self'"]
+//     }
+//   },
+//   // COOP déjà géré par le middleware global
+//   crossOriginOpenerPolicy: false,
+//   originAgentCluster: false
+// }));
 // ===== MIDDLEWARES GÉNÉRAUX =====
 app.use(express_1.default.json({ limit: '10mb' }));
 app.use(express_1.default.urlencoded({ extended: true, limit: '10mb' }));

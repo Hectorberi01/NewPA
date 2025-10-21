@@ -386,4 +386,57 @@ createOrUpdateGradingSession = async (req: Request, res: Response) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// Dans grading.controller.ts
+
+/**
+ * Récupère toutes les notes d'un étudiant
+ */
+getStudentGrades = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.id; // ID de l'étudiant connecté
+    const grades = await this.gradingService.getStudentGrades(userId);
+    res.json(grades);
+  } catch (error: any) {
+    console.error('Erreur getStudentGrades:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/**
+ * Récupère les notes d'un étudiant pour un projet spécifique
+ */
+getStudentProjectGrades = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.id;
+    const projectId = parseInt(req.params.projectId);
+    
+    const grades = await this.gradingService.getStudentProjectGrades(userId, projectId);
+    res.json(grades);
+  } catch (error: any) {
+    console.error('Erreur getStudentProjectGrades:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/**
+ * Récupère les détails d'une note spécifique
+ */
+getGradeDetails = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.id;
+    const gradeId = parseInt(req.params.gradeId);
+    
+    const grade = await this.gradingService.getGradeDetailsForStudent(userId, gradeId);
+    
+    if (!grade) {
+      return res.status(404).json({ error: 'Note non trouvée' });
+    }
+    
+    res.json(grade);
+  } catch (error: any) {
+    console.error('Erreur getGradeDetails:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
 }

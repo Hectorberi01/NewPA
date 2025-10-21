@@ -56,8 +56,19 @@ class ProjectController {
      */
     async getProjectById(req, res) {
         try {
+            const userId = req.user?.id;
+            const userRole = req.user?.role;
             const projectId = parseInt(req.params.id);
-            const project = await this.projectService.getProjectById(projectId);
+            let project;
+            console.log(projectId);
+            console.log(userId);
+            console.log(userRole);
+            if (userRole === 'student') {
+                project = await this.projectService.getProjectsByIdForStudent(userId, projectId);
+            }
+            else {
+                project = await this.projectService.getProjectById(projectId);
+            }
             if (!project) {
                 return res.status(404).json({ error: 'Project not found' });
             }

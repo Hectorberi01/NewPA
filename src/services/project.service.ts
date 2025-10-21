@@ -54,7 +54,10 @@ export class ProjectService {
 
     // Si le projet devient visible, notifier les étudiants
     if (!wasVisible && updatedProject.status === 'visible') {
-      await this.notifyStudentsNewProject(updatedProject);
+      // await this.notifyStudentsNewProject(updatedProject);
+      for (const student of project.promotion.students) {
+        this.emailService.sendProjectVisibleEmail(student.email, student.firstName, updatedProject.name)
+      }
     }
 
     return updatedProject;

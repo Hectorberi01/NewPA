@@ -43,6 +43,8 @@ export class User {
   @UpdateDateColumn()
   updatedAt!: Date;
 
+  @Column({ default: false })
+  isTemporaryPassword!: boolean;
   // Relations
   @OneToMany(() => Promotion, promotion => promotion.teacher)
   teacherPromotions!: Promotion[];

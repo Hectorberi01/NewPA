@@ -3,10 +3,13 @@ import { AuthController } from '../controllers/auth.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
 import * as validator from 'express-validator';
 import { handleValidationErrors } from '../middleware/validation.middleware';
+import passport from 'passport';
+import { AuthService } from '../services/auth.service';
 
 const { body } = validator;
 const router = Router();
 const authController = new AuthController();
+const { loginWithGoogleOrAzure } = require('../services/auth.service');
 
 // ===== VALIDATIONS MANQUANTES =====
 const validateForgotPassword = [
@@ -50,9 +53,46 @@ router.post('/refresh', validateRefreshToken,
 // Route OAuth Microsoft 
 router.post('/oauth/microsoft', validateOAuthToken, 
   authController.microsoftOAuth.bind(authController));
+
 // Route OAuth Google
-router.post('/oauth/google', validateOAuthToken, 
-  authController.googleOAuth.bind(authController));
+router.get('/google', 
+  passport.authenticate('google', { 
+    scope: ['profile', 'email'],
+    accessType: 'offline',
+    prompt: 'consent'
+  })
+);
+
+router.get('/google/callback',
+  passport.authenticate('google', {
+    failureRedirect: `http://localhost:3001/login?error=auth_failed`,
+    session: false // Désactiver la session car on utilise JWT
+  }),
+
+  async (req, res) => {
+    try {
+      console.log('✅ Authentication successful');
+
+      const authService = new AuthService();
+
+      // L'utilisateur est dans req.user grâce à Passport
+      const user = req.user as any;
+
+      // Générer les tokens JWT
+      const authResponse = await authService.formatAuthResponse(user);
+
+      // Encoder les données pour les passer dans l'URL
+      const encodedData = Buffer.from(JSON.stringify(authResponse)).toString('base64');
+
+      // Rediriger vers le frontend avec les tokens
+      res.redirect(`http://localhost:3001/auth/callback?data=${encodedData}`);
+    } catch (error) {
+      console.error('❌ Error in callback:', error);
+      res.redirect(`http://localhost:3001/login?error=server_error`);
+    }
+  }
+);
+
 
 // Routes de vérification et informations utilisateur
 router.get('/verify', authMiddleware, 

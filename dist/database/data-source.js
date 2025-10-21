@@ -48,8 +48,7 @@ exports.AppDataSource = new typeorm_1.DataSource({
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME || 'projectacademy',
     synchronize: false,
-    logging: true,
-    migrationsRun: true,
+    logging: false,
     entities: [Entities_1.User, Entities_1.Project, Entities_1.Promotion, Entities_1.Group, Entities_1.Deliverable, Entities_1.DeliverableRule, Entities_1.DeliverableSubmission, Entities_1.Report,
         Entities_1.ReportSection, Entities_1.Defense, Entities_1.GradingGrid, Entities_1.GradingCriterion, Entities_1.Grade, Entities_1.CriterionGrade, Entities_1.SubmissionFingerprint, // 👈 ajoute bien celle-ci !
         Entities_1.SimilarityResult,

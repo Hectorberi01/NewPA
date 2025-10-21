@@ -74,6 +74,24 @@ router.get(
   requireTeacher, 
   gradingController.getGradingSummary.bind(gradingController)
 );
+// Routes pour les étudiants - affichage des notes
+router.get(
+  '/students/my-grades',
+  authMiddleware,
+  gradingController.getStudentGrades.bind(gradingController)
+);
+
+router.get(
+  '/students/projects/:projectId/grades',
+  authMiddleware,
+  gradingController.getStudentProjectGrades.bind(gradingController)
+);
+
+router.get(
+  '/students/grades/:gradeId/details',
+  authMiddleware,
+  gradingController.getGradeDetails.bind(gradingController)
+);
 
 export default router;
 

@@ -68,8 +68,10 @@ export class ProjectController {
       console.log(userId);
       console.log(userRole)
       if(userRole === 'student'){
+             console.log("student access")
         project = await this.projectService.getProjectsByIdForStudent(userId,projectId);
       }else {
+             console.log("teacher access")
        project = await this.projectService.getProjectById(projectId);
       }
 
@@ -79,7 +81,9 @@ export class ProjectController {
 
       res.json(project);
     } catch (error) {
-      res.status(500).json({ error: 'Internal Server Error' });
+      console.error('[getProjectById] Error:', error);
+
+      res.status(500).json({ error: error  instanceof Error ? error.message : 'Internal Server Error' });
     }
   }
 

@@ -123,21 +123,10 @@ export class AuthController {
 
   /**
    * @swagger
-   * /api/auth/oauth/google:
-   *   post:
+   * /api/auth/google:
+   *   get:
    *     summary: Google OAuth login
    *     tags: [Authentication]
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             type: object
-   *             required: [token]
-   *             properties:
-   *               token:
-   *                 type: string
-   *                 description: Google access token
    *     responses:
    *       200:
    *         description: OAuth login successful
@@ -146,17 +135,17 @@ export class AuthController {
    *             schema:
    *               $ref: '#/components/schemas/LoginResponse'
    */
-  async googleOAuth(req: Request, res: Response) {
-    try {
-      const { token } = req.body;
+  // async googleOAuth(req: Request, res: Response) {
+  //   try {
+  //     const { token } = req.body;
 
-      const result = await this.authService.authenticateWithGoogle(token);
+  //     const result = await this.authService.authenticateWithGoogle(token);
 
-      res.json(result);
-    } catch (error) {
-      res.status(401).json({ error: 'Invalid or expired token' });
-    }
-  }
+  //     res.json(result);
+  //   } catch (error) {
+  //     res.status(401).json({ error: 'Invalid or expired token' });
+  //   }
+  // }
 
   /**
    * @swagger

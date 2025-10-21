@@ -6,6 +6,8 @@ import { PasswordService } from '../utils/password.service';
 import { EmailService } from '../utils/email.service';
 import { OAuth2Client, TokenPayload } from 'google-auth-library';
 import * as dotenv from 'dotenv';
+import { Profile } from 'passport-google-oauth20';
+import { UserService } from './user.service';
 dotenv.config();
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -38,6 +40,7 @@ export interface MicrosoftUserData {
   givenName: string;
   surname: string;
 }
+<<<<<<< HEAD
 const TOKEN_CONFIG = {
   access: {
     secret: process.env.JWT_SECRET || 'default_secret',
@@ -48,7 +51,22 @@ const TOKEN_CONFIG = {
     expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d'
   }
 };
+=======
+
+interface GoogleProfile {
+  id: string;
+  emails?: Array<{ value: string; verified: boolean }>;
+  displayName: string;
+  name?: {
+    givenName?: string;
+    familyName?: string;
+  };
+  photos?: Array<{ value: string }>;
+}
+
+>>>>>>> origin/version_1
 export class AuthService {
+
   private userRepository: Repository<User>;
   private emailService: EmailService;
 
@@ -162,10 +180,10 @@ export class AuthService {
         email: googleUserData.email,
         firstName: googleUserData.given_name,
         lastName: googleUserData.family_name,
-        role: 'teacher', // Par défaut, les nouveaux utilisateurs OAuth sont des enseignants
+        role: 'teacher',
         googleId: googleUserData.id,
         isActive: true,
-        password : "DefaultPassword123!" // Mot de passe par défaut (à changer après la première connexion)
+        password : "DefaultPassword123!"
       });
 
       user = await this.userRepository.save(user);
@@ -458,6 +476,8 @@ export class AuthService {
     );
   }
 
+
+
   /**
    * Vérifier un token Google
    */
@@ -540,6 +560,58 @@ export class AuthService {
       throw new Error('Failed to verify Microsoft token');
     }
   }
+
+  async loginWithGoogleOrAzure(email: string) {
+    try {
+      const user = await this.userRepository.findOne({
+        where: { email: email }
+      });
+      if (!user) {
+        return { status: 401, data: { error: 'Email ou mot de passe invalide' } };
+      }
+
+         // Supprimer le champ password
+      delete user.password;
+      const token = jwt.sign({ user: user }, process.env.JWT_REFRESH_SECRET, { expiresIn: '1h' });
+          return { status: 200, data: { token, user } };  
+    } catch (err: any) {  
+      return { status: 401, data: { error: 'Email ou mot de passe invalide' } };
+    }
+  }
+
+  static async findOrCreateGoogleUser(profile: GoogleProfile) {
+    const email = profile.emails?.[0]?.value;
+    const userService = new UserService();
+    if (!email) {
+      throw new Error('Email not provided by Google');
+    }
+
+    // Chercher si l'utilisateur existe déjà
+     let user = await userService.findByEmail(email);
+
+
+    if (!user) {
+      return ;
+    } 
+
+    return user;
+  }
+
+  
+
+  async formatAuthResponse(user: any) {
+    const { password, ...userWithoutPassword } = user;
+
+    const token =  this.generateAccessToken(user);
+    const refreshToken =  this.generateRefreshToken(user);
+
+    return {
+      user: userWithoutPassword,
+      token,
+      refreshToken
+    };
+  }
+
 
   /**
    * Mettre à jour la dernière connexion
