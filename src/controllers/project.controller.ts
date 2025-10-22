@@ -277,15 +277,19 @@ export class ProjectController {
    *       204:
    *         description: Project deleted successfully
    */
-  async deleteProject(req: Request, res: Response) {
-    try {
-      const projectId = parseInt(req.params.id);
-      await this.projectService.deleteProject(projectId);
-      res.status(204).send();
-    } catch (error) {
-      res.status(500).json({ error: 'Internal Server Error' });
-    }
+async deleteProject(req: Request, res: Response) {
+  try {
+    const projectId = parseInt(req.params.id);
+    await this.projectService.deleteProject(projectId);
+    res.status(204).send();
+  } catch (error) {
+    console.error('Erreur suppression projet:', error);
+    res.status(500).json({ 
+      error: 'Internal Server Error',
+      details: error.message 
+    });
   }
+}
 
   /**
    * @swagger

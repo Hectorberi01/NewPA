@@ -119,5 +119,17 @@ class EmailService {
         };
         await this.transporter.sendMail(mailOptions);
     }
+    async sendProjectVisibleEmail(to, firstName, projectName) {
+        const mailOptions = {
+            from: process.env.FROM_EMAIL || 'noreply@example.com',
+            to: to,
+            subject: "Nouveau projet disponible",
+            html: `     
+    <p>Bonjour ${firstName || 'étudiant'},</p>
+    <p>Un nouveau projet <b>${projectName}</b> est désormais disponible dans votre espace étudiant.</p>
+    <p>Connectez-vous pour le consulter.</p>`,
+        };
+        await this.transporter.sendMail(mailOptions);
+    }
 }
 exports.EmailService = EmailService;

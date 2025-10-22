@@ -257,6 +257,54 @@ class GradingController {
                 res.status(500).json({ message: error.message });
             }
         };
+        // Dans grading.controller.ts
+        /**
+         * Récupère toutes les notes d'un étudiant
+         */
+        this.getStudentGrades = async (req, res) => {
+            try {
+                const userId = req.user.id; // ID de l'étudiant connecté
+                const grades = await this.gradingService.getStudentGrades(userId);
+                res.json(grades);
+            }
+            catch (error) {
+                console.error('Erreur getStudentGrades:', error);
+                res.status(500).json({ error: error.message });
+            }
+        };
+        /**
+         * Récupère les notes d'un étudiant pour un projet spécifique
+         */
+        this.getStudentProjectGrades = async (req, res) => {
+            try {
+                const userId = req.user.id;
+                const projectId = parseInt(req.params.projectId);
+                const grades = await this.gradingService.getStudentProjectGrades(userId, projectId);
+                res.json(grades);
+            }
+            catch (error) {
+                console.error('Erreur getStudentProjectGrades:', error);
+                res.status(500).json({ error: error.message });
+            }
+        };
+        /**
+         * Récupère les détails d'une note spécifique
+         */
+        this.getGradeDetails = async (req, res) => {
+            try {
+                const userId = req.user.id;
+                const gradeId = parseInt(req.params.gradeId);
+                const grade = await this.gradingService.getGradeDetailsForStudent(userId, gradeId);
+                if (!grade) {
+                    return res.status(404).json({ error: 'Note non trouvée' });
+                }
+                res.json(grade);
+            }
+            catch (error) {
+                console.error('Erreur getGradeDetails:', error);
+                res.status(500).json({ error: error.message });
+            }
+        };
         this.gradingService = new grading_service_1.GradingService();
     }
     /**

@@ -44,6 +44,7 @@ const password_service_1 = require("../utils/password.service");
 const email_service_1 = require("../utils/email.service");
 const google_auth_library_1 = require("google-auth-library");
 const dotenv = __importStar(require("dotenv"));
+const user_service_1 = require("./user.service");
 dotenv.config();
 const client = new google_auth_library_1.OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const TOKEN_CONFIG = {
@@ -144,10 +145,10 @@ class AuthService {
                 email: googleUserData.email,
                 firstName: googleUserData.given_name,
                 lastName: googleUserData.family_name,
-                role: 'teacher', // Par défaut, les nouveaux utilisateurs OAuth sont des enseignants
+                role: 'teacher',
                 googleId: googleUserData.id,
                 isActive: true,
-                password: "DefaultPassword123!" // Mot de passe par défaut (à changer après la première connexion)
+                password: "DefaultPassword123!"
             });
             user = await this.userRepository.save(user);
             // Envoyer un email de bienvenue
@@ -448,6 +449,46 @@ class AuthService {
         catch (error) {
             throw new Error('Failed to verify Microsoft token');
         }
+    }
+    async loginWithGoogleOrAzure(email) {
+        try {
+            const user = await this.userRepository.findOne({
+                where: { email: email }
+            });
+            if (!user) {
+                return { status: 401, data: { error: 'Email ou mot de passe invalide' } };
+            }
+            // Supprimer le champ password
+            delete user.password;
+            const token = jsonwebtoken_1.default.sign({ user: user }, process.env.JWT_REFRESH_SECRET, { expiresIn: '1h' });
+            return { status: 200, data: { token, user } };
+        }
+        catch (err) {
+            return { status: 401, data: { error: 'Email ou mot de passe invalide' } };
+        }
+    }
+    static async findOrCreateGoogleUser(profile) {
+        const email = profile.emails?.[0]?.value;
+        const userService = new user_service_1.UserService();
+        if (!email) {
+            throw new Error('Email not provided by Google');
+        }
+        // Chercher si l'utilisateur existe déjà
+        let user = await userService.findByEmail(email);
+        if (!user) {
+            return;
+        }
+        return user;
+    }
+    async formatAuthResponse(user) {
+        const { password, ...userWithoutPassword } = user;
+        const token = this.generateAccessToken(user);
+        const refreshToken = this.generateRefreshToken(user);
+        return {
+            user: userWithoutPassword,
+            token,
+            refreshToken
+        };
     }
 }
 exports.AuthService = AuthService;

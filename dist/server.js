@@ -16,7 +16,7 @@ const PORT = process.env.PORT || 4000;
 //const PORT = Number(process.env.PORT) || 3000;
 const HTTPS_PORT = Number(process.env.HTTPS_PORT) || 3443;
 const NODE_ENV = process.env.NODE_ENV || 'development';
-const DOMAIN = process.env.DOMAIN || 'test-projet.com';
+const DOMAIN = process.env.DOMAIN || 'localhost';
 // Fonction pour vérifier si les certificats SSL existent
 const certificatesExist = () => {
     try {

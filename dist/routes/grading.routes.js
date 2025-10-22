@@ -25,6 +25,10 @@ router.get('/groups/:groupId/grades', auth_middleware_1.authMiddleware, gradingC
 router.get('/projects/:projectId/grades', auth_middleware_1.authMiddleware, gradingController.getProjectGrades);
 // src/routes/grading.routes.ts
 router.get('/projects/:projectId/summary', auth_middleware_1.authMiddleware, auth_middleware_1.requireTeacher, gradingController.getGradingSummary.bind(gradingController));
+// Routes pour les étudiants - affichage des notes
+router.get('/students/my-grades', auth_middleware_1.authMiddleware, gradingController.getStudentGrades.bind(gradingController));
+router.get('/students/projects/:projectId/grades', auth_middleware_1.authMiddleware, gradingController.getStudentProjectGrades.bind(gradingController));
+router.get('/students/grades/:gradeId/details', auth_middleware_1.authMiddleware, gradingController.getGradeDetails.bind(gradingController));
 exports.default = router;
 /*POST   /api/grading/grids
 GET    /api/grading/projects/:projectId/grids?deliverableId=X

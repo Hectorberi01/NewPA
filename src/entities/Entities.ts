@@ -169,7 +169,7 @@ export class Group {
   updatedAt!: Date;
 
   // Relations
-  @ManyToOne(() => Project, project => project.groups)
+  @ManyToOne(() => Project, project => project.groups, { onDelete: 'CASCADE' })
   project!: Project;
 
   @ManyToMany(() => User, user => user.groups)
@@ -221,7 +221,7 @@ export class Deliverable {
   updatedAt!: Date;
 
   // Relations
-  @ManyToOne(() => Project, project => project.deliverables)
+  @ManyToOne(() => Project, project => project.deliverables , { onDelete: 'CASCADE' })
   project!: Project;
 
   @OneToMany(() => DeliverableRule, rule => rule.deliverable)
@@ -407,10 +407,10 @@ export class Report {
   updatedAt!: Date;
 
   // Relations
-  @ManyToOne(() => Project, project => project.reports)
+  @ManyToOne(() => Project, project => project.reports, { onDelete: 'CASCADE' })
   project!: Project;
 
-  @ManyToOne(() => Group, group => group.reports)
+  @ManyToOne(() => Group, group => group.reports, { onDelete: 'CASCADE' })
   group!: Group;
 
   @OneToMany(() => ReportSection, section => section.report)
@@ -438,7 +438,7 @@ export class ReportSection {
   updatedAt!: Date;
 
   // Relations
-  @ManyToOne(() => Report, report => report.sections)
+  @ManyToOne(() => Report, report => report.sections, { onDelete: 'CASCADE' })
   report!: Report;
 }
 
@@ -468,10 +468,10 @@ export class Defense {
   updatedAt!: Date;
 
   // Relations
-  @ManyToOne(() => Project, project => project.defenses)
+  @ManyToOne(() => Project, project => project.defenses, { onDelete: 'CASCADE' })
   project!: Project;
 
-  @ManyToOne(() => Group, group => group.defenses)
+  @ManyToOne(() => Group, group => group.defenses, { onDelete: 'CASCADE' })
   group!: Group;
 }
 
@@ -501,7 +501,7 @@ export class GradingGrid {
   updatedAt!: Date;
 
   // Relations
-  @ManyToOne(() => Project, project => project.gradingGrids)
+  @ManyToOne(() => Project, project => project.gradingGrids , { onDelete: 'CASCADE' })
   project!: Project;
 
   @OneToMany(() => GradingCriterion, criterion => criterion.gradingGrid)

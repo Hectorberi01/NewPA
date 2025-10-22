@@ -67,6 +67,7 @@ export class PromotionService {
           isActive: true
         });
         student = await this.userRepository.save(student);
+        this.sendWelcomeEmailAsync(student, tempPassword);
       }
 
       if (!promotion.students.some(s => s.id === student.id)) {
@@ -379,4 +380,17 @@ async removeStudentFromPromotion(promotionId: number, studentId: number, teacher
 
   return { success: true, studentId };
 }
+  private async sendWelcomeEmailAsync(student: User, tempPassword: string): Promise<void> {
+    try {
+      const emailService = new EmailService();
+      await emailService.sendAccountCreationEmail(
+        student.email, 
+        student.firstName, 
+        tempPassword
+      );
+      console.log(`✅ Email envoyé à ${student.email}`);
+    } catch (emailError) {
+      console.error(`❌ Erreur email pour ${student.email}:`, emailError);
+    }
+  }
 }

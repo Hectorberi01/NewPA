@@ -435,12 +435,29 @@ export class ProjectService {
     }
   }
 
-  async deleteProject(id: number): Promise<void> {
-    const project = await this.projectRepository.findOne({ where: { id } });
-    if (!project) throw new Error('Project not found');
+async deleteProject(id: number): Promise<void> {
+  const project = await this.projectRepository.findOne({
+    where: { id },
+    relations: [
+      'deliverables',
+      'reports',
+      'defenses',
+      'gradingGrids',
+      'groups',
+      'promotion'
+    ]
+  });
 
+  if (!project) throw new Error('Project not found');
+
+  try {
     await this.projectRepository.remove(project);
+  } catch (error: any) {
+    console.error('Erreur détaillée suppression:', error);
+    throw new Error(`Impossible de supprimer le projet: ${error.message}`);
   }
+}
+
 
   private async notifyStudentsNewProject(project: Project): Promise<void> {
     if (!project.promotion?.students) return;

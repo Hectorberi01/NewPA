@@ -40,7 +40,6 @@ export interface MicrosoftUserData {
   givenName: string;
   surname: string;
 }
-<<<<<<< HEAD
 const TOKEN_CONFIG = {
   access: {
     secret: process.env.JWT_SECRET || 'default_secret',
@@ -51,7 +50,6 @@ const TOKEN_CONFIG = {
     expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d'
   }
 };
-=======
 
 interface GoogleProfile {
   id: string;
@@ -64,7 +62,6 @@ interface GoogleProfile {
   photos?: Array<{ value: string }>;
 }
 
->>>>>>> origin/version_1
 export class AuthService {
 
   private userRepository: Repository<User>;
@@ -79,6 +76,13 @@ export class AuthService {
    * Connexion par email/mot de passe
    */
   async login(email: string, password: string): Promise<LoginResult> {
+     console.log('Tentative de login pour:', email);
+      try {
+            const user1 = await this.userRepository.findOne({
+              where: { email: email }
+            });
+            
+            console.log('Utilisateur avec findOne:', user1);
     // Récupérer l'utilisateur avec son mot de passe
     const user = await this.userRepository
       .createQueryBuilder('user')
@@ -86,17 +90,23 @@ export class AuthService {
       .where('user.email = :email', { email })
       .getOne();
 
+  console.log('Utilisateur trouvé:', user ? 'Oui' : 'Non');
+  console.log('User active status:', user?.isActive);
     if (!user || !user.isActive) {
+      console.log('Utilisateur inactif');
       throw new Error('Invalid credentials');
     }
 
     // Vérifier le mot de passe
     if (!user.password) {
+        console.log('Utilisateur non trouvé');
       throw new Error('Password not set for this user');
     }
 
     const isPasswordValid = await PasswordService.comparePasswords(password, user.password);
+    console.log('Mot de passe valide:', isPasswordValid);
     if (!isPasswordValid) {
+      console.log('Mot de passe invalide');
       throw new Error('Invalid credentials');
     }
 
@@ -115,6 +125,10 @@ export class AuthService {
       token,
       refreshToken
     };
+     } catch (error) {
+    console.error('Erreur dans login:', error);
+    throw error;
+  }
   }
 
   /**

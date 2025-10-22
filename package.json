@@ -27,11 +27,8 @@
     "@faker-js/faker": "^9.9.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^2.0.0",
-<<<<<<< HEAD
     "@typescript-eslint/typescript-estree": "^8.46.0",
-=======
     "@types/passport": "^1.0.17",
->>>>>>> origin/version_1
     "adm-zip": "^0.5.16",
     "bcrypt": "^6.0.0",
     "compression": "^1.8.1",

@@ -160,7 +160,8 @@ class PromotionService {
                                 lastName: studentData.lastName,
                                 password: hashedPassword,
                                 role: 'student',
-                                isActive: true
+                                isActive: true,
+                                isTemporaryPassword: true
                             });
                             console.log('Création du nouvel étudiant:', newStudent);
                             const savedStudent = await this.userRepository.save(newStudent);
@@ -192,7 +193,7 @@ class PromotionService {
                     totalProcessed,
                     newStudents: newStudentsCount,
                     existingStudents: existingStudentsCount,
-                    errors
+                    errors,
                 }
             };
         }

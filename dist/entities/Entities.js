@@ -68,6 +68,10 @@ __decorate([
     __metadata("design:type", Date)
 ], User.prototype, "updatedAt", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ default: false }),
+    __metadata("design:type", Boolean)
+], User.prototype, "isTemporaryPassword", void 0);
+__decorate([
     (0, typeorm_1.OneToMany)(() => Promotion, promotion => promotion.teacher),
     __metadata("design:type", Array)
 ], User.prototype, "teacherPromotions", void 0);

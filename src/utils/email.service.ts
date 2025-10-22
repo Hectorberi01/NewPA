@@ -16,6 +16,7 @@ export class EmailService {
   }
 
   async sendAccountCreationEmail(email: string, firstName: string, tempPassword: string) {
+    console.log('Envoi de l\'email de création de compte à:', email);
     const mailOptions = {
       from: process.env.FROM_EMAIL || 'noreply@example.com',
       to: email,
@@ -29,6 +30,7 @@ export class EmailService {
         <p><a href="${process.env.FRONTEND_URL}/login">Se connecter</a></p>
       `,
     };
+    console.log('Envoi de l\'email de création de compte à:', mailOptions);
 
     return await this.transporter.sendMail(mailOptions);
   }

@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.GradingService = void 0;
 const data_source_1 = require("../database/data-source");
 const Entities_1 = require("../entities/Entities");
+const typeorm_1 = require("typeorm");
 class GradingService {
     constructor() {
         this.gradingGridRepository = data_source_1.AppDataSource.getRepository(Entities_1.GradingGrid);
@@ -507,6 +508,166 @@ class GradingService {
         if (!result)
             throw new Error('Grade not found after saving');
         return result;
+    }
+    // Dans grading.service.ts
+    async getStudentGrades(userId) {
+        const gradeRepo = data_source_1.AppDataSource.getRepository(Entities_1.Grade);
+        // Récupérer tous les groupes de l'étudiant
+        const userRepo = data_source_1.AppDataSource.getRepository(Entities_1.User);
+        const user = await userRepo.findOne({
+            where: { id: userId },
+            relations: ['groups', 'groups.project']
+        });
+        if (!user || !user.groups) {
+            return [];
+        }
+        const groupIds = user.groups.map(g => g.id);
+        // Récupérer toutes les notes validées pour ces groupes
+        const grades = await gradeRepo.find({
+            where: {
+                group: { id: (0, typeorm_1.In)(groupIds) },
+                isValidated: true
+            },
+            relations: [
+                'group',
+                'group.project',
+                'gradingGrid',
+                'criterionGrades',
+                'criterionGrades.criterion'
+            ],
+            order: {
+                updatedAt: 'DESC'
+            }
+        });
+        // Formater les données pour le frontend
+        return grades.map(grade => ({
+            id: grade.id,
+            projectName: grade.group.project.name,
+            projectId: grade.group.project.id,
+            groupName: grade.group.name,
+            type: grade.gradingGrid.type,
+            title: grade.gradingGrid.name,
+            grade: grade.totalScore || 0,
+            maxGrade: this.calculateMaxScore(grade.gradingGrid),
+            feedback: grade.globalComments,
+            gradedAt: grade.updatedAt,
+            criteria: grade.criterionGrades?.map(cg => ({
+                name: cg.criterion.name,
+                score: cg.score,
+                maxScore: cg.criterion.maxScore,
+                comments: cg.comments,
+                weight: cg.criterion.weight
+            })) || []
+        }));
+    }
+    async getStudentProjectGrades(userId, projectId) {
+        const gradeRepo = data_source_1.AppDataSource.getRepository(Entities_1.Grade);
+        // Trouver le groupe de l'étudiant pour ce projet
+        const groupRepo = data_source_1.AppDataSource.getRepository(Entities_1.Group);
+        const group = await groupRepo
+            .createQueryBuilder('group')
+            .innerJoin('group.members', 'member')
+            .innerJoin('group.project', 'project')
+            .where('member.id = :userId', { userId })
+            .andWhere('project.id = :projectId', { projectId })
+            .getOne();
+        if (!group) {
+            return [];
+        }
+        // Récupérer les notes validées pour ce groupe
+        const grades = await gradeRepo.find({
+            where: {
+                group: { id: group.id },
+                isValidated: true
+            },
+            relations: [
+                'group',
+                'group.project',
+                'gradingGrid',
+                'criterionGrades',
+                'criterionGrades.criterion'
+            ],
+            order: {
+                gradingGrid: { type: 'ASC' },
+                updatedAt: 'DESC'
+            }
+        });
+        return grades.map(grade => ({
+            id: grade.id,
+            type: grade.gradingGrid.type,
+            title: grade.gradingGrid.name,
+            description: grade.gradingGrid.description,
+            grade: grade.totalScore || 0,
+            maxGrade: this.calculateMaxScore(grade.gradingGrid),
+            weight: grade.gradingGrid.weight,
+            feedback: grade.globalComments,
+            gradedAt: grade.updatedAt,
+            criteria: grade.criterionGrades?.map(cg => ({
+                id: cg.id,
+                name: cg.criterion.name,
+                description: cg.criterion.description,
+                score: cg.score,
+                maxScore: cg.criterion.maxScore,
+                weight: cg.criterion.weight,
+                comments: cg.comments
+            })) || []
+        }));
+    }
+    async getGradeDetailsForStudent(userId, gradeId) {
+        const gradeRepo = data_source_1.AppDataSource.getRepository(Entities_1.Grade);
+        const grade = await gradeRepo.findOne({
+            where: {
+                id: gradeId,
+                isValidated: true
+            },
+            relations: [
+                'group',
+                'group.members',
+                'group.project',
+                'gradingGrid',
+                'gradingGrid.criteria',
+                'criterionGrades',
+                'criterionGrades.criterion'
+            ]
+        });
+        if (!grade) {
+            return null;
+        }
+        // Vérifier que l'étudiant fait partie du groupe
+        const isMember = grade.group.members.some(m => m.id === userId);
+        if (!isMember) {
+            throw new Error('Accès non autorisé à cette note');
+        }
+        return {
+            id: grade.id,
+            projectName: grade.group.project.name,
+            groupName: grade.group.name,
+            gridName: grade.gradingGrid.name,
+            type: grade.gradingGrid.type,
+            totalScore: grade.totalScore,
+            maxScore: this.calculateMaxScore(grade.gradingGrid),
+            weight: grade.gradingGrid.weight,
+            globalComments: grade.globalComments,
+            gradedAt: grade.updatedAt,
+            criteria: grade.criterionGrades?.map(cg => ({
+                id: cg.id,
+                name: cg.criterion.name,
+                description: cg.criterion.description,
+                score: cg.score,
+                maxScore: cg.criterion.maxScore,
+                weight: cg.criterion.weight,
+                comments: cg.comments,
+                percentage: (cg.score / cg.criterion.maxScore) * 100
+            }))
+        };
+    }
+    calculateMaxScore(grid) {
+        if (!grid.criteria || grid.criteria.length === 0) {
+            return 20; // Valeur par défaut
+        }
+        return grid.criteria.reduce((sum, criterion) => {
+            return sum + (criterion.maxScore * criterion.weight);
+        }, 0);
     }
 }
 exports.GradingService = GradingService;

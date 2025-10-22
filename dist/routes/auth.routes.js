@@ -32,15 +32,21 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const auth_controller_1 = require("../controllers/auth.controller");
 const auth_middleware_1 = require("../middleware/auth.middleware");
 const validator = __importStar(require("express-validator"));
 const validation_middleware_1 = require("../middleware/validation.middleware");
+const passport_1 = __importDefault(require("passport"));
+const auth_service_1 = require("../services/auth.service");
 const { body } = validator;
 const router = (0, express_1.Router)();
 const authController = new auth_controller_1.AuthController();
+const { loginWithGoogleOrAzure } = require('../services/auth.service');
 // ===== VALIDATIONS MANQUANTES =====
 const validateForgotPassword = [
     body('email').isEmail().withMessage('Invalid email format'),
@@ -72,7 +78,32 @@ router.post('/refresh', validateRefreshToken, authController.refreshToken.bind(a
 // Route OAuth Microsoft 
 router.post('/oauth/microsoft', validateOAuthToken, authController.microsoftOAuth.bind(authController));
 // Route OAuth Google
-router.post('/oauth/google', validateOAuthToken, authController.googleOAuth.bind(authController));
+router.get('/google', passport_1.default.authenticate('google', {
+    scope: ['profile', 'email'],
+    accessType: 'offline',
+    prompt: 'consent'
+}));
+router.get('/google/callback', passport_1.default.authenticate('google', {
+    failureRedirect: `http://localhost:3001/login?error=auth_failed`,
+    session: false // Désactiver la session car on utilise JWT
+}), async (req, res) => {
+    try {
+        console.log('✅ Authentication successful');
+        const authService = new auth_service_1.AuthService();
+        // L'utilisateur est dans req.user grâce à Passport
+        const user = req.user;
+        // Générer les tokens JWT
+        const authResponse = await authService.formatAuthResponse(user);
+        // Encoder les données pour les passer dans l'URL
+        const encodedData = Buffer.from(JSON.stringify(authResponse)).toString('base64');
+        // Rediriger vers le frontend avec les tokens
+        res.redirect(`http://localhost:3001/auth/callback?data=${encodedData}`);
+    }
+    catch (error) {
+        console.error('❌ Error in callback:', error);
+        res.redirect(`http://localhost:3001/login?error=server_error`);
+    }
+});
 // Routes de vérification et informations utilisateur
 router.get('/verify', auth_middleware_1.authMiddleware, authController.verifyToken.bind(authController));
 router.get('/me', auth_middleware_1.authMiddleware, authController.getCurrentUser.bind(authController));
