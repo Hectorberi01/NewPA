@@ -18,7 +18,7 @@ export class EmailService {
   async sendAccountCreationEmail(email: string, firstName: string, tempPassword: string) {
     console.log('Envoi de l\'email de création de compte à:', email);
     const mailOptions = {
-      from: process.env.FROM_EMAIL || 'noreply@example.com',
+      from: process.env.FROM_EMAIL  ,
       to: email,
       subject: 'Compte créé - Gestionnaire de Projets Étudiants',
       html: `
