@@ -1,4 +1,5 @@
 import express from 'express';
+import * as dotenv from 'dotenv';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -9,7 +10,7 @@ import path from 'path';
 import passport from 'passport';
 import session from 'express-session';
 import "./config/passport";
-import * as dotenv from 'dotenv';
+
 
 dotenv.config();
 
