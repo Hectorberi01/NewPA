@@ -211,7 +211,15 @@ export class Deliverable {
   @Column({ default: false })
   allowLateSubmission!: boolean;
 
-  @Column({ type: 'int', default: 0 })
+  @Column('decimal', {
+    precision: 5,
+    scale: 2,
+    default: 0,
+    transformer: {
+      to: (v?: number | null) => v,
+      from: (v: string | null) => (v == null ? null : Number(v)),
+    },
+  })
   penaltyPerHour!: number;
 
   @CreateDateColumn()
@@ -221,7 +229,7 @@ export class Deliverable {
   updatedAt!: Date;
 
   // Relations
-  @ManyToOne(() => Project, project => project.deliverables , { onDelete: 'CASCADE' })
+  @ManyToOne(() => Project, project => project.deliverables, { onDelete: 'CASCADE' })
   project!: Project;
 
   @OneToMany(() => DeliverableRule, rule => rule.deliverable)
@@ -267,7 +275,15 @@ export class DeliverableSubmission {
   @Column({ default: false })
   isLate!: boolean;
 
-  @Column({ type: 'int', default: 0 })
+  @Column('decimal', {
+    precision: 5,
+    scale: 2,
+    default: 0,
+    transformer: {
+      to: (v?: number | null) => v,
+      from: (v: string | null) => (v == null ? null : Number(v)),
+    },
+  })
   penalty!: number;
 
   @Column({ type: 'json', nullable: true })
@@ -501,7 +517,7 @@ export class GradingGrid {
   updatedAt!: Date;
 
   // Relations
-  @ManyToOne(() => Project, project => project.gradingGrids , { onDelete: 'CASCADE' })
+  @ManyToOne(() => Project, project => project.gradingGrids, { onDelete: 'CASCADE' })
   project!: Project;
 
   @OneToMany(() => GradingCriterion, criterion => criterion.gradingGrid)

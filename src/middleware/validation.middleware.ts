@@ -32,6 +32,6 @@ export const validateCreateDeliverable = [
   body('deadline').isISO8601().withMessage('Invalid deadline format'),
   body('projectId').isInt().withMessage('Project ID must be an integer'),
   body('allowLateSubmission').optional().isBoolean(),
-  body('penaltyPerHour').optional().isInt({ min: 0 }),
+  body('penaltyPerHour').optional().isFloat({ min: 0 }).withMessage('penaltyPerHour must be a number ≥ 0').toFloat(),
   handleValidationErrors
 ];
