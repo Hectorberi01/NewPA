@@ -16,8 +16,9 @@ export class JavaAstFingerprintService implements FingerprintService {
   async build(file: ExtractedFile): Promise<Fingerprint[]> {
     try {
       // const cst = JavaParser.parse(file.content);
-      const cst = parseJava(file.content);
-
+      //const cst = parseJava(file.content);
+    const { parse } = await import('java-parser');
+    const cst = parse(file.content);
       // Séquence de types de nœuds + quelques tokens normalisés (ID/NUM/STR/BOOL)
       const seq: string[] = [];
       this.flattenCst(cst, seq);

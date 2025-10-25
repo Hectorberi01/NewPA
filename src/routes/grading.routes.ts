@@ -93,6 +93,26 @@ router.get(
   gradingController.getGradeDetails.bind(gradingController)
 );
 
+
+router.get(
+  '/sessions',
+  authMiddleware,
+  gradingController.getGradingSession.bind(gradingController)
+);
+
+router.post(
+  '/sessions',
+  authMiddleware,
+  requireTeacher,
+  gradingController.createOrUpdateGradingSession.bind(gradingController)
+);
+
+router.put(
+  '/sessions/:id',
+  authMiddleware,
+  requireTeacher,
+  gradingController.createOrUpdateGradingSession.bind(gradingController)
+);
 export default router;
 
 
