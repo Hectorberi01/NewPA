@@ -113,6 +113,14 @@ router.put(
   requireTeacher,
   gradingController.createOrUpdateGradingSession.bind(gradingController)
 );
+
+
+// Dans grading.routes.ts - AJOUTEZ CETTE ROUTE
+router.get(
+  '/sessions/project/:projectId',
+  authMiddleware,
+  gradingController.getGradingSessionsByProject.bind(gradingController)
+);
 export default router;
 
 

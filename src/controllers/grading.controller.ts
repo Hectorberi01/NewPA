@@ -59,7 +59,27 @@ export class GradingController {
       res.status(500).json({ error: error});
     }
   }
+// Dans GradingController - AJOUTEZ CETTE MÉTHODE
+async getGradingSessionsByProject(req: Request, res: Response) {
+  try {
+    const { projectId } = req.params;
+    const { type } = req.query;
+    
+    if (!projectId) {
+      return res.status(400).json({ error: 'projectId est requis' });
+    }
 
+    const sessions = await this.gradingService.getGradingSessions(
+      Number(projectId), 
+      type as string
+    );
+    
+    res.json(sessions);
+  } catch (error: any) {
+    console.error('Erreur getGradingSessionsByProject:', error);
+    res.status(500).json({ error: error.message });
+  }
+}
   /**
    * @swagger
    * /api/grading/grade:
@@ -284,108 +304,38 @@ getGradingGridsByProject = async (req: Request, res: Response) => {
     }
   };
 
- getGradingSession = async (req: Request, res: Response) => {
+async getGradingSession(req: Request, res: Response) {
   try {
-    const { gridId, groupId } = req.query;
-
-    if (!gridId || !groupId) {
+    const { projectId, type, gridId, groupId } = req.query;
+    
+    // ✅ Accepte soit (projectId + type) soit (gridId + groupId)
+    if (projectId && type) {
+      // Récupération par projet et type
+      const sessions = await this.gradingService.getGradingSessions(
+        Number(projectId), 
+        type as string
+      );
+      return res.json(sessions);
+    } 
+    else if (gridId && groupId) {
+      // Récupération spécifique par grille et groupe
+      const session = await this.gradingService.getGradingSessionByGridAndGroup(
+        Number(gridId),
+        Number(groupId)
+      );
+      return res.json(session ? [session] : []);
+    }
+    else {
       return res.status(400).json({ 
-        message: 'gridId et groupId sont requis' 
+        error: 'Soit (projectId et type) soit (gridId et groupId) sont requis' 
       });
     }
-
-    const session = await this.gradingService.getOrCreateGradingSession(
-      Number(gridId),
-      Number(groupId)
-    );
-
-    if (!session) {
-      return res.status(404).json({ 
-        message: 'Aucune session trouvée' 
-      });
-    }
-
-    // Transformer en format frontend
-    const response = {
-      id: session.id,
-      gridId: session.gradingGrid.id,
-      groupId: session.group.id,
-      entries: session.criterionGrades?.map(cg => ({
-        id: cg.id,
-        criterionId: cg.criterion.id,
-        groupId: session.group.id,
-        score: cg.score,
-        comment: cg.comments || '',
-        gradedBy: 0, // À adapter selon votre logique d'authentification
-        gradedAt: session.createdAt,
-        status: session.isValidated ? 'validated' : 'draft'
-      })) || [],
-      globalComment: session.globalComments || '',
-      totalScore: session.totalScore || 0,
-      status: session.isValidated ? 'validated' : 'draft',
-      gradedBy: 0,
-      gradedAt: session.createdAt,
-      validatedAt: session.isValidated ? session.updatedAt : undefined
-    };
-
-    res.json(response);
   } catch (error: any) {
     console.error('Erreur getGradingSession:', error);
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ error: error.message });
   }
-};
+}
 
-createOrUpdateGradingSession = async (req: Request, res: Response) => {
-  try {
-    const { gridId, groupId, entries, globalComment, totalScore, status } = req.body;
-
-    if (!gridId || !groupId || !entries) {
-      return res.status(400).json({ 
-        message: 'gridId, groupId et entries sont requis' 
-      });
-    }
-
-    const savedGrade = await this.gradingService.saveGradingSession(
-      gridId,
-      groupId,
-      {
-        entries,
-        globalComment,
-        totalScore,
-        status: status || 'draft'
-      },
-      req.body.id > 0 ? req.body.id : undefined
-    );
-
-    // Transformer en format frontend
-    const response = {
-      id: savedGrade.id,
-      gridId: savedGrade.gradingGrid.id,
-      groupId: savedGrade.group.id,
-      entries: savedGrade.criterionGrades?.map(cg => ({
-        id: cg.id,
-        criterionId: cg.criterion.id,
-        groupId: savedGrade.group.id,
-        score: cg.score,
-        comment: cg.comments || '',
-        gradedBy: 0,
-        gradedAt: savedGrade.createdAt,
-        status: savedGrade.isValidated ? 'validated' : 'draft'
-      })) || [],
-      globalComment: savedGrade.globalComments || '',
-      totalScore: savedGrade.totalScore || 0,
-      status: savedGrade.isValidated ? 'validated' : 'draft',
-      gradedBy: 0,
-      gradedAt: savedGrade.createdAt,
-      validatedAt: savedGrade.isValidated ? savedGrade.updatedAt : undefined
-    };
-
-    res.json(response);
-  } catch (error: any) {
-    console.error('Erreur createOrUpdateGradingSession:', error);
-    res.status(500).json({ message: error.message });
-  }
-};
 
 // Dans grading.controller.ts
 
@@ -439,4 +389,36 @@ getGradeDetails = async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message });
   }
 };
+// Dans GradingController
+
+
+
+async getGradingSessionById(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const session = await this.gradingService.getGradingSessionById(Number(id));
+    
+    if (!session) {
+      return res.status(404).json({ error: 'Session non trouvée' });
+    }
+    
+    res.json(session);
+  } catch (error: any) {
+    console.error('Erreur getGradingSessionById:', error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+async createOrUpdateGradingSession(req: Request, res: Response) {
+  try {
+    const sessionData = req.body;
+    
+    const session = await this.gradingService.createOrUpdateGradingSession(sessionData);
+    
+    res.json(session);
+  } catch (error: any) {
+    console.error('Erreur createOrUpdateGradingSession:', error);
+    res.status(500).json({ error: error.message });
+  }
+}
 }

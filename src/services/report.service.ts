@@ -69,4 +69,24 @@ export class ReportService {
       //order: { 'sections.orderIndex': 'ASC' }
     });
   }
+  async getReportById(reportId: number): Promise<Report | null> {
+    return await this.reportRepository.findOne({
+      where: { id: reportId },
+      relations: ['sections', 'group'],
+      order: { sections: { orderIndex: 'ASC' } },
+    });
+  }
+
+  // Récupérer un rapport par projet et groupe
+
+
+  // Supprimer un rapport et ses sections
+  async deleteReport(reportId: number): Promise<void> {
+    await this.reportRepository.delete(reportId);
+  }
+
+  // Supprimer une section spécifique
+  async deleteReportSection(sectionId: number): Promise<void> {
+    await this.sectionRepository.delete(sectionId);
+  }
 }

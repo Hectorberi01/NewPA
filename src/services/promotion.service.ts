@@ -1,6 +1,6 @@
 import { Repository } from 'typeorm';
 import { AppDataSource } from '../database/data-source';
-import { Promotion, User } from '../entities/Entities'
+import { Project, Promotion, User } from '../entities/Entities'
 import csv from 'csv-parser';
 import * as XLSX from 'xlsx';
 import { createReadStream, unlinkSync } from 'fs';
@@ -345,13 +345,34 @@ export class PromotionService {
 
 
 
-   async deletePromotion(promotionId: number): Promise<void> {
-    const promotion = await this.promotionRepository.findOne({ where: { id: promotionId } });
+async deletePromotion(promotionId: number): Promise<void> {
+  return await this.promotionRepository.manager.transaction(async transactionalEntityManager => {
+    const promotion = await transactionalEntityManager.findOne(Promotion, { 
+      where: { id: promotionId },
+      relations: ['projects', 'students'] 
+    });
+    
     if (!promotion) throw new Error('Promotion not found');
 
-    await this.promotionRepository.remove(promotion);
-  }
+    const projects = await transactionalEntityManager.find(Project, {
+      where: { promotion: { id: promotionId } },
+      relations: ['groups', 'deliverables', 'reports', 'defenses', 'gradingGrids']
+    });
 
+    for (const project of projects) {
+      await transactionalEntityManager.remove(Project, project);
+    }
+
+    await transactionalEntityManager
+      .createQueryBuilder()
+      .delete()
+      .from('promotion_students_user')
+      .where('promotionId = :promotionId', { promotionId })
+      .execute();
+
+    await transactionalEntityManager.remove(Promotion, promotion);
+  });
+}
 async removeStudentFromPromotion(promotionId: number, studentId: number, teacherId: number) {
   // Vérifier que la promotion existe et appartient au professeur
   const promotion = await this.promotionRepository.findOne({
@@ -383,11 +404,11 @@ async removeStudentFromPromotion(promotionId: number, studentId: number, teacher
   private async sendWelcomeEmailAsync(student: User, tempPassword: string): Promise<void> {
     try {
       const emailService = new EmailService();
-      await emailService.sendAccountCreationEmail(
+      /*await emailService.sendAccountCreationEmail(
         student.email, 
         student.firstName, 
         tempPassword
-      );
+      );*/
       console.log(`✅ Email envoyé à ${student.email}`);
     } catch (emailError) {
       console.error(`❌ Erreur email pour ${student.email}:`, emailError);

@@ -1,6 +1,6 @@
 import { Repository,In,DataSource ,Brackets} from 'typeorm';
 import { AppDataSource } from '../database/data-source';
-import { Project,Group,User,Promotion } from '../entities/Entities';
+import { Project,Group,User,Promotion, Defense, ReportSection, Deliverable, DeliverableRule, CriterionGrade, DeliverableSubmission, Grade, GradingCriterion, GradingGrid, Report } from '../entities/Entities';
 
 import { EmailService } from '../utils/email.service';
 export interface GroupSavePayload {
@@ -436,26 +436,61 @@ export class ProjectService {
   }
 
 async deleteProject(id: number): Promise<void> {
-  const project = await this.projectRepository.findOne({
-    where: { id },
-    relations: [
-      'deliverables',
-      'reports',
-      'defenses',
-      'gradingGrids',
-      'groups',
-      'promotion'
-    ]
+  return await this.projectRepository.manager.transaction(async transactionalEntityManager => {
+    // 1️⃣ Récupérer le projet
+    const project = await transactionalEntityManager.findOne(Project, {
+      where: { id },
+      relations: ['groups', 'gradingGrids', 'deliverables', 'reports', 'defenses']
+    });
+    if (!project) throw new Error('Project not found');
+
+    // 2️⃣ Récupérer tous les groupes du projet
+    const groups = project.groups;
+    const groupIds = groups.map(g => g.id);
+
+    // 3️⃣ Supprimer les Grades et CriterionGrades
+    const grades = await transactionalEntityManager.find(Grade, { where: { group: { id: In(groupIds) } } });
+    const gradeIds = grades.map(g => g.id);
+    await transactionalEntityManager.delete(CriterionGrade, { grade: { id: In(gradeIds) } });
+    await transactionalEntityManager.delete(Grade, { id: In(gradeIds) });
+
+    // 4️⃣ Supprimer les GradingCriteria et GradingGrids
+    const grids = project.gradingGrids;
+    const gridIds = grids.map(g => g.id);
+    await transactionalEntityManager.delete(GradingCriterion, { gradingGrid: { id: In(gridIds) } });
+    await transactionalEntityManager.delete(GradingGrid, { id: In(gridIds) });
+
+    // 5️⃣ Supprimer les DeliverableRules et Deliverables
+    const deliverables = project.deliverables;
+    const deliverableIds = deliverables.map(d => d.id);
+    await transactionalEntityManager.delete(DeliverableRule, { deliverable: { id: In(deliverableIds) } });
+    await transactionalEntityManager.delete(Deliverable, { id: In(deliverableIds) });
+
+    // 6️⃣ Supprimer les DeliverableSubmissions
+    await transactionalEntityManager.delete(DeliverableSubmission, { group: { id: In(groupIds) } });
+
+    // 7️⃣ Supprimer les ReportSections et Reports
+    const reports = await transactionalEntityManager.find(Report, { where: { project: { id } } });
+    const reportIds = reports.map(r => r.id);
+    await transactionalEntityManager.delete(ReportSection, { report: { id: In(reportIds) } });
+    await transactionalEntityManager.delete(Report, { id: In(reportIds) });
+
+    // 8️⃣ Supprimer les Defenses
+    await transactionalEntityManager.delete(Defense, { project: { id } });
+
+    // 9️⃣ Supprimer les associations many-to-many group_members_user
+    if (groupIds.length > 0) {
+      await transactionalEntityManager.query(
+        `DELETE FROM group_members_user WHERE groupId IN (${groupIds.join(',')})`
+      );
+    }
+
+    // 🔟 Supprimer les Groups
+    await transactionalEntityManager.delete(Group, { id: In(groupIds) });
+
+    // 1️⃣1️⃣ Supprimer le Project
+    await transactionalEntityManager.delete(Project, { id });
   });
-
-  if (!project) throw new Error('Project not found');
-
-  try {
-    await this.projectRepository.remove(project);
-  } catch (error: any) {
-    console.error('Erreur détaillée suppression:', error);
-    throw new Error(`Impossible de supprimer le projet: ${error.message}`);
-  }
 }
 
 

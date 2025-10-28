@@ -87,8 +87,8 @@ export class Promotion {
   @JoinTable()
   students!: User[];
 
-  @OneToMany(() => Project, project => project.promotion)
-  projects!: Project[];
+  @OneToMany(() => Project, project => project.promotion, { onDelete: 'CASCADE' })
+projects!: Project[];
 }
 
 @Entity()
@@ -134,12 +134,12 @@ export class Project {
   @ManyToOne(() => User, user => user.teacherProjects)
   teacher!: User;
 
-  @ManyToOne(() => Promotion, promo => promo.projects, { nullable: true })
-  @JoinColumn({ name: 'promotionId' })   // 🔒 force le nom
+  @ManyToOne(() => Promotion, promo => promo.projects, { nullable: true, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'promotionId' })
   promotion!: Promotion;
 
-  @OneToMany(() => Group, group => group.project)
-  groups!: Group[];
+@OneToMany(() => Group, group => group.project, { onDelete: 'CASCADE' })
+groups!: Group[];
 
   @OneToMany(() => Deliverable, deliverable => deliverable.project)
   deliverables!: Deliverable[];
@@ -185,8 +185,8 @@ export class Group {
   @OneToMany(() => Defense, defense => defense.group)
   defenses!: Defense[];
 
-  @OneToMany(() => Grade, grade => grade.group)
-  grades!: Grade[];
+@OneToMany(() => Grade, grade => grade.group, { onDelete: 'CASCADE' })
+grades!: Grade[];
 }
 
 // ===== LIVRABLES =====
@@ -232,7 +232,7 @@ export class Deliverable {
   @ManyToOne(() => Project, project => project.deliverables, { onDelete: 'CASCADE' })
   project!: Project;
 
-  @OneToMany(() => DeliverableRule, rule => rule.deliverable)
+  @OneToMany(() => DeliverableRule, rule => rule.deliverable, { onDelete: 'CASCADE' })
   validationRules!: DeliverableRule[];
 
   @OneToMany(() => DeliverableSubmission, submission => submission.deliverable)
@@ -254,7 +254,7 @@ export class DeliverableRule {
   errorMessage?: string;
 
   // Relations
-  @ManyToOne(() => Deliverable, deliverable => deliverable.validationRules)
+  @ManyToOne(() => Deliverable, deliverable => deliverable.validationRules, { onDelete: 'CASCADE' })
   deliverable!: Deliverable;
 }
 
