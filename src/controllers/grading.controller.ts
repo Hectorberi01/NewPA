@@ -126,14 +126,24 @@ async getGradingSessionsByProject(req: Request, res: Response) {
   }
   
 getGradingGridsByProject = async (req: Request, res: Response) => {
-    try {
-      const projectId = parseInt(req.params.projectId);
-      const grids = await this.gradingService.getGradingGridsByProject(projectId);
-      res.json(grids);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
+  try {
+    const projectId = parseInt(req.params.projectId);
+    const type = req.query.type as 'deliverable' | 'report' | 'defense' | undefined;
+
+    let grids;
+    
+    if (type) {
+      grids = await this.gradingService.getGradingGridsByProjectAndType(projectId, type);
+    } else {
+      grids = await this.gradingService.getGradingGridsByProject(projectId);
     }
-  };
+
+    res.json(grids);
+  } catch (error: any) {
+    console.error('Erreur getGradingGridsByProject:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
   getGradeById = async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
@@ -144,7 +154,73 @@ getGradingGridsByProject = async (req: Request, res: Response) => {
       res.status(400).json({ error: error.message });
     }
   };
+ async updateGridWeights(req: Request, res: Response) {
+    try {
+      const { projectId } = req.params;
+      const { weights } = req.body;
 
+      // ✅ Validation des paramètres
+      if (!projectId || isNaN(parseInt(projectId))) {
+        return res.status(400).json({ 
+          message: 'ID de projet invalide' 
+        });
+      }
+
+      if (!Array.isArray(weights) || weights.length === 0) {
+        return res.status(400).json({ 
+          message: 'Le paramètre "weights" doit être un tableau non vide' 
+        });
+      }
+
+      // ✅ Validation du format des weights
+      for (const weight of weights) {
+        if (!weight.id || typeof weight.weight !== 'number') {
+          return res.status(400).json({ 
+            message: 'Format invalide : chaque élément doit avoir {id: number, weight: number}' 
+          });
+        }
+      }
+
+      // ✅ Vérifier que la somme des poids = 1
+      const totalWeight = weights.reduce((sum: number, w: any) => sum + w.weight, 0);
+      
+      if (Math.abs(totalWeight - 1) > 0.01) {
+        return res.status(400).json({ 
+          message: `La somme des poids doit être égale à 1.00 (actuellement ${totalWeight.toFixed(3)})` 
+        });
+      }
+
+      // ✅ Convertir le format du frontend vers le backend
+      const weightsData = weights.map((w: any) => ({
+        gridId: w.id,
+        weight: w.weight
+      }));
+
+      // ✅ Appel au service
+      const updatedGrids = await this.gradingService.updateGridWeights(
+        parseInt(projectId), 
+        weightsData
+      );
+
+      res.json({
+        message: 'Pondérations mises à jour avec succès',
+        grids: updatedGrids
+      });
+    } catch (error: any) {
+      console.error('❌ Erreur updateGridWeights:', error);
+      
+      // Gestion des erreurs spécifiques
+      if (error.message.includes('n\'appartient pas')) {
+        return res.status(404).json({ 
+          message: error.message 
+        });
+      }
+      
+      res.status(500).json({ 
+        message: error.message || 'Erreur serveur lors de la mise à jour des pondérations' 
+      });
+    }
+  }
   getProjectGradingGrids = async (req: Request, res: Response) => {
     try {
       const projectId = parseInt(req.params.projectId);
@@ -190,22 +266,7 @@ getGradingGridsByProject = async (req: Request, res: Response) => {
     }
   };
 
-  duplicateGradingGrid = async (req: Request, res: Response) => {
-    try {
-      const id = parseInt(req.params.id);
-      const { newName, newProjectId } = req.body;
-      
-      const duplicatedGrid = await this.gradingService.duplicateGradingGrid(
-        id,
-        newName,
-        newProjectId
-      );
-      
-      res.status(201).json(duplicatedGrid);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  };
+ 
 
   addCriterion = async (req: Request, res: Response) => {
     try {

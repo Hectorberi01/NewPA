@@ -18,12 +18,12 @@ const validateCreatePromotion = [
 
 router.post('/', authMiddleware, requireTeacher, validateCreatePromotion, promotionController.createPromotion.bind(promotionController));
 router.get('/my', authMiddleware, requireTeacher, promotionController.getMyPromotions.bind(promotionController));
-router.post('/:id/students', authMiddleware, requireTeacher, promotionController.addStudents.bind(promotionController));
+router.post('/:promotionId/students', authMiddleware, requireTeacher, promotionController.addStudents.bind(promotionController));
 
 router.put('/:id', authMiddleware, requireTeacher, validateCreatePromotion, promotionController.updatePromotion.bind(promotionController));
 router.delete('/:id', authMiddleware, requireTeacher, promotionController.deletePromotion.bind(promotionController));
 
-router.post('/:id/students/import', 
+router.post('/:promotionId/students/import', 
   authMiddleware, 
   requireTeacher, 
   uploadMiddleware.single('file'), // Limite à 10MB par défaut

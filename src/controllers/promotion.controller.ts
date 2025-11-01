@@ -1,7 +1,13 @@
 // controllers/promotion.controller.ts
 import { Request, Response } from 'express';
 import { PromotionService } from '../services/promotion.service';
-
+interface StudentData {
+  email: string;
+  firstName: string; // Changez de ? à string
+  lastName: string;  
+  prenom?: string; 
+  nom?: string; // Changez de ? à string
+}
 export class PromotionController {
   private promotionService: PromotionService;
 
@@ -139,16 +145,45 @@ export class PromotionController {
    *         description: Promotion not found
    */
 
-  async addStudents(req: Request, res: Response) {
-    try {
-      const promotionId = parseInt(req.params.id);
-      const data = req.body;
-      const promotion = await this.promotionService.addStudentsToPromotion(promotionId, data);
-      res.json(promotion);
-    } catch (error) {
-      res.status(500).json({ error: 'Internal Server Error' });
+async addStudents(req: Request, res: Response) {
+  try {
+    const promotionId = parseInt(req.params.promotionId) || parseInt(req.params.Id); // ✅ Parser en nombre
+    const studentsData: StudentData[] = req.body;
+
+    console.log('Add students request:', {
+      promotionId,
+      studentsCount: studentsData?.length,
+      studentsData
+    });
+
+    if (isNaN(promotionId)) {
+      return res.status(400).json({ error: 'ID de promotion invalide' });
     }
+
+    if (!Array.isArray(studentsData) || studentsData.length === 0) {
+      return res.status(400).json({ error: 'Données étudiants invalides' });
+    }
+
+    const normalizedStudents = studentsData.map(student => ({
+      email: student.email,
+      firstName: student.firstName || student.prenom || student.email.split('@')[0],
+      lastName: student.lastName || student.nom || 'Étudiant'
+    }));
+
+    const promotion = await this.promotionService.addStudentsToPromotion(
+      promotionId,  
+      normalizedStudents
+    );
+
+    res.json(promotion);
+  } catch (error) {
+    console.error('Error in addStudents:', error);
+    res.status(500).json({ 
+      error: 'Erreur lors de l\'ajout des étudiants', 
+      details: error.message 
+    });
   }
+}
 
 
   /**
@@ -335,6 +370,8 @@ export class PromotionController {
     try {
       const promotionId = parseInt(req.params.id);
       const file = req.file;
+        console.log("File reçu:", file);
+        console.log("Promotion ID:", promotionId);
 
       if (!file) {
         return res.status(400).json({ error: 'Aucun fichier fourni' });
@@ -350,7 +387,7 @@ export class PromotionController {
 
     } catch (error) {
       res.status(500).json({
-        error: error || 'Erreur lors de l\'import des étudiants'
+        error: error.message || 'Erreur lors de l\'import des étudiants'
       });
     }
   }

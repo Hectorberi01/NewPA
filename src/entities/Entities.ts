@@ -141,16 +141,16 @@ export class Project {
 @OneToMany(() => Group, group => group.project, { onDelete: 'CASCADE' })
 groups!: Group[];
 
-  @OneToMany(() => Deliverable, deliverable => deliverable.project)
+  @OneToMany(() => Deliverable, deliverable => deliverable.project, { onDelete: 'CASCADE' })
   deliverables!: Deliverable[];
 
-  @OneToMany(() => Report, report => report.project)
+  @OneToMany(() => Report, report => report.project, { onDelete: 'CASCADE' })
   reports!: Report[];
 
-  @OneToMany(() => Defense, defense => defense.project)
+  @OneToMany(() => Defense, defense => defense.project, { onDelete: 'CASCADE' })
   defenses!: Defense[];
 
-  @OneToMany(() => GradingGrid, gradingGrid => gradingGrid.project)
+  @OneToMany(() => GradingGrid, gradingGrid => gradingGrid.project, { onDelete: 'CASCADE' })
   gradingGrids!: GradingGrid[];
 }
 
@@ -176,13 +176,13 @@ export class Group {
   @JoinTable()
   members!: User[];
 
-  @OneToMany(() => DeliverableSubmission, submission => submission.group)
+  @OneToMany(() => DeliverableSubmission, submission => submission.group, { onDelete: 'CASCADE' })
   deliverableSubmissions!: DeliverableSubmission[];
 
-  @OneToMany(() => Report, report => report.group)
+  @OneToMany(() => Report, report => report.group, { onDelete: 'CASCADE' })
   reports!: Report[];
 
-  @OneToMany(() => Defense, defense => defense.group)
+  @OneToMany(() => Defense, defense => defense.group, { onDelete: 'CASCADE' })
   defenses!: Defense[];
 
 @OneToMany(() => Grade, grade => grade.group, { onDelete: 'CASCADE' })
@@ -235,7 +235,7 @@ export class Deliverable {
   @OneToMany(() => DeliverableRule, rule => rule.deliverable, { onDelete: 'CASCADE' })
   validationRules!: DeliverableRule[];
 
-  @OneToMany(() => DeliverableSubmission, submission => submission.deliverable)
+  @OneToMany(() => DeliverableSubmission, submission => submission.deliverable, { onDelete: 'CASCADE' })
   submissions!: DeliverableSubmission[];
 }
 
@@ -319,10 +319,10 @@ export class DeliverableSubmission {
   @UpdateDateColumn()
   updatedAt!: Date;
 
-  @ManyToOne(() => Deliverable, deliverable => deliverable.submissions)
+  @ManyToOne(() => Deliverable, deliverable => deliverable.submissions, { onDelete: 'CASCADE' })
   deliverable!: Deliverable;
 
-  @ManyToOne(() => Group, group => group.deliverableSubmissions)
+  @ManyToOne(() => Group, group => group.deliverableSubmissions, { onDelete: 'CASCADE' })
   group!: Group;
 
   @OneToMany(() => SubmissionFingerprint, fp => fp.submission, { cascade: true })
@@ -416,6 +416,16 @@ export class Report {
   @Column({ type: 'text', nullable: true })
   description?: string;
 
+  @Column({ 
+    type: 'enum', 
+    enum: ['draft', 'submitted'], 
+    default: 'draft' 
+  })
+  status!: 'draft' | 'submitted';
+
+  @Column({ type: 'datetime', nullable: true })
+  submittedAt?: Date;
+
   @CreateDateColumn()
   createdAt!: Date;
 
@@ -424,15 +434,22 @@ export class Report {
 
   // Relations
   @ManyToOne(() => Project, project => project.reports, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'projectId' })
   project!: Project;
 
+  @Column({ name: 'projectId' })
+  projectId!: number;
+
   @ManyToOne(() => Group, group => group.reports, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'groupId' })
   group!: Group;
 
-  @OneToMany(() => ReportSection, section => section.report)
+  @Column({ name: 'groupId' })
+  groupId!: number;
+
+  @OneToMany(() => ReportSection, section => section.report, { cascade: true })
   sections!: ReportSection[];
 }
-
 @Entity()
 export class ReportSection {
   @PrimaryGeneratedColumn()
@@ -441,11 +458,15 @@ export class ReportSection {
   @Column()
   title!: string;
 
-  @Column({ type: 'text' })
-  content!: string; // Contenu en markdown/html
+  @Column({ type: 'longtext', nullable: true })
+content: string | null;
 
-  @Column({ type: 'int' })
+
+  @Column({ type: 'int', default: 0 })
   orderIndex!: number;
+
+  @Column({ type: 'int', nullable: true })
+  sectionConfigId?: number; // Référence à ReportSectionConfig
 
   @CreateDateColumn()
   createdAt!: Date;
@@ -455,7 +476,11 @@ export class ReportSection {
 
   // Relations
   @ManyToOne(() => Report, report => report.sections, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'reportId' })
   report!: Report;
+
+  @Column({ name: 'reportId' })
+  reportId!: number;
 }
 
 // ===== SOUTENANCES =====
@@ -491,7 +516,6 @@ export class Defense {
   group!: Group;
 }
 
-// ===== NOTATION =====
 
 @Entity()
 export class GradingGrid {
@@ -517,13 +541,13 @@ export class GradingGrid {
   updatedAt!: Date;
 
   // Relations
-  @ManyToOne(() => Project, project => project.gradingGrids, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Project, project => project.gradingGrids, { onDelete: 'CASCADE' }) // AJOUT de onDelete: 'CASCADE'
   project!: Project;
 
-  @OneToMany(() => GradingCriterion, criterion => criterion.gradingGrid)
+  @OneToMany(() => GradingCriterion, criterion => criterion.gradingGrid, { cascade: true, onDelete: 'CASCADE' }) // AJOUT de onDelete: 'CASCADE'
   criteria!: GradingCriterion[];
 
-  @OneToMany(() => Grade, grade => grade.gradingGrid)
+  @OneToMany(() => Grade, grade => grade.gradingGrid, { onDelete: 'CASCADE' }) // AJOUT de onDelete: 'CASCADE'
   grades!: Grade[];
 }
 
@@ -551,10 +575,10 @@ export class GradingCriterion {
   hasComments!: boolean;
 
   // Relations
-  @ManyToOne(() => GradingGrid, gradingGrid => gradingGrid.criteria)
+  @ManyToOne(() => GradingGrid, gradingGrid => gradingGrid.criteria, { onDelete: 'CASCADE' }) // AJOUT de onDelete: 'CASCADE'
   gradingGrid!: GradingGrid;
 
-  @OneToMany(() => CriterionGrade, criterionGrade => criterionGrade.criterion)
+  @OneToMany(() => CriterionGrade, criterionGrade => criterionGrade.criterion, { onDelete: 'CASCADE' }) // AJOUT de onDelete: 'CASCADE'
   criterionGrades!: CriterionGrade[];
 }
 
@@ -579,16 +603,16 @@ export class Grade {
   updatedAt!: Date;
 
   // Relations
-  @ManyToOne(() => GradingGrid, gradingGrid => gradingGrid.grades)
+  @ManyToOne(() => GradingGrid, gradingGrid => gradingGrid.grades, { onDelete: 'CASCADE' }) 
   gradingGrid!: GradingGrid;
 
-  @ManyToOne(() => Group, group => group.grades)
+  @ManyToOne(() => Group, group => group.grades, { onDelete: 'CASCADE' }) 
   group!: Group;
 
-  @ManyToOne(() => User, { nullable: true }) // Pour les notes individuelles
+  @ManyToOne(() => User, { nullable: true, onDelete: 'CASCADE' }) 
   student?: User;
 
-  @OneToMany(() => CriterionGrade, criterionGrade => criterionGrade.grade)
+  @OneToMany(() => CriterionGrade, criterionGrade => criterionGrade.grade, { cascade: true, onDelete: 'CASCADE' }) // AJOUT de onDelete: 'CASCADE'
   criterionGrades!: CriterionGrade[];
 }
 
@@ -604,9 +628,80 @@ export class CriterionGrade {
   comments?: string;
 
   // Relations
-  @ManyToOne(() => Grade, grade => grade.criterionGrades)
+
+  @ManyToOne(() => Grade, grade => grade.criterionGrades, { onDelete: 'CASCADE' })
   grade!: Grade;
 
-  @ManyToOne(() => GradingCriterion, criterion => criterion.criterionGrades)
+  @ManyToOne(() => GradingCriterion, criterion => criterion.criterionGrades, { onDelete: 'CASCADE' })
   criterion!: GradingCriterion;
+}
+
+
+// ===== CONFIGURATION RAPPORTS =====
+@Entity()
+export class ReportConfig {
+  @PrimaryGeneratedColumn()
+  id!: number;
+
+  @ManyToOne(() => Project, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'projectId' })
+  project!: Project;
+
+  @Column({ name: 'projectId' })
+  projectId!: number;
+
+  @Column({ default: false })
+  isEnabled!: boolean;
+
+  @Column({ type: 'text', nullable: true })
+  instructions?: string;
+
+  @Column({ type: 'enum', enum: ['markdown', 'html'], default: 'markdown' })
+  format!: 'markdown' | 'html';
+
+  @Column({ type: 'datetime', nullable: true })
+  deadline?: Date;
+
+  @OneToMany(() => ReportSectionConfig, section => section.config, { cascade: true })
+  sections!: ReportSectionConfig[];
+
+  @CreateDateColumn()
+  createdAt!: Date;
+
+  @UpdateDateColumn()
+  updatedAt!: Date;
+}
+
+@Entity()
+export class ReportSectionConfig {
+  @PrimaryGeneratedColumn()
+  id!: number;
+
+  @ManyToOne(() => ReportConfig, config => config.sections, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'configId' })
+  config!: ReportConfig;
+
+  @Column({ name: 'configId' })
+  configId!: number;
+
+  @Column()
+  title!: string;
+
+  @Column({ type: 'text', nullable: true })
+  description?: string;
+
+  @Column({ default: true })
+  required!: boolean;
+
+  @Column({ type: 'int', nullable: true })
+  wordLimit?: number;
+
+  @Column({ type: 'int', default: 0 })
+  order!: number;
+
+  @CreateDateColumn()
+  createdAt!: Date;
+
+  @UpdateDateColumn()
+  updatedAt!: Date;
 }

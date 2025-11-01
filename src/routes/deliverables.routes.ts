@@ -35,4 +35,11 @@ router.post('/:id/submit', authMiddleware, uploadMiddleware.single('file'),
 router.get('/projects/:projectId/deliverables', authMiddleware, 
   deliverableController.getProjectDeliverables.bind(deliverableController));
 
+// Ajouter dans le router, après les autres routes
+router.post('/:id/validate', authMiddleware, uploadMiddleware.single('file'), 
+  deliverableController.validateDeliverable.bind(deliverableController));
+
+  router.get('/:deliverableId/submissions/:groupId', authMiddleware, requireTeacher,
+  deliverableController.getGroupSubmission.bind(deliverableController));
+
 export default router;

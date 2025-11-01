@@ -1,15 +1,17 @@
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { AppDataSource } from '../database/data-source';
-import { Project, Promotion, User } from '../entities/Entities'
+import { CriterionGrade, Defense, Deliverable, DeliverableRule, DeliverableSubmission, GradingCriterion, GradingGrid, Group, Project, Promotion, ReportSection, User } from '../entities/Entities'
 import csv from 'csv-parser';
 import * as XLSX from 'xlsx';
-import { createReadStream, unlinkSync } from 'fs';
+import { createReadStream, readFileSync, unlinkSync } from 'fs';
 import { PasswordService } from '../utils/password.service';
 import { EmailService } from '../utils/email.service';
 import iconv from "iconv-lite";
 import stripBom from "strip-bom-stream";
 
 interface StudentData {
+  prenom?: string;
+  nom?: string;
   email: string;
   firstName?: string;
   lastName?: string;
@@ -40,43 +42,59 @@ export class PromotionService {
     return await this.promotionRepository.findOne({ where: { id: promotionId } });
   }
 
-  async addStudentsToPromotion(promotionId: number, studentsListe: StudentData[]): Promise<Promotion> {
-    const promotion = await this.promotionRepository.findOne({
-      where: { id: promotionId },
-      relations: ['students']
+async addStudentsToPromotion(promotionId: number, studentsListe: StudentData[]): Promise<Promotion> {
+  const promotion = await this.promotionRepository.findOne({
+    where: { id: promotionId },
+    relations: ['students']
+  });
+
+  if (!promotion) throw new Error('Promotion not found');
+  
+  console.log('Promotion trouvée:', promotion);
+  const newStudents: User[] = [];
+
+  console.log('Liste des étudiants à ajouter:', studentsListe);
+  
+  for (const data of studentsListe) {
+    // CORRECTION: Rechercher avec les bonnes relations si nécessaire
+    let student = await this.userRepository.findOne({ 
+      where: { email: data.email },
+      relations: ['studentPromotions'] // Ajouter si nécessaire
     });
 
-
-    if (!promotion) throw new Error('Promotion not found');
-    console.log('Promotion trouvée:', promotion);
-    const newStudents: User[] = [];
-
-    console.log('Liste des étudiants à ajouter:', studentsListe);
-    for (const data of studentsListe) {
-      let student = await this.userRepository.findOne({ where: { email: data.email } });
-
-      if (!student) {
-        const tempPassword = PasswordService.generateTemporaryPassword();
-        const hashedPassword = await PasswordService.hashPassword(tempPassword);
-        student = this.userRepository.create({
-          email: data.email,
-          firstName: data.firstName,
-          lastName: data.lastName,
-          role: 'student',
-          password: hashedPassword,
-          isActive: true
-        });
-        student = await this.userRepository.save(student);
-        this.sendWelcomeEmailAsync(student, tempPassword);
-      }
-
-      if (!promotion.students.some(s => s.id === student.id)) {
-        newStudents.push(student);
-      }
+    if (!student) {
+      const tempPassword = PasswordService.generateTemporaryPassword();
+      console.log('Temporary password generated:', tempPassword);
+      const hashedPassword = await PasswordService.hashPassword(tempPassword);
+      
+      // CORRECTION: S'assurer que les champs correspondent
+      student = this.userRepository.create({
+        email: data.email,
+        firstName: data.firstName || data.prenom, // Gérer les deux formats
+        lastName: data.lastName || data.nom,      // Gérer les deux formats
+        role: 'student',
+        password: hashedPassword,
+        isActive: true
+      });
+      
+      student = await this.userRepository.save(student);
+      
+      // CORRECTION: Utiliser le service d'email correct
+      this.sendWelcomeEmailAsync(student, tempPassword);
     }
-    promotion.students = [...promotion.students, ...newStudents];
-    return await this.promotionRepository.save(promotion);
+
+    // CORRECTION: Vérifier si l'étudiant est déjà dans la promotion
+    const isAlreadyInPromotion = promotion.students.some(s => s.id === student.id);
+    if (!isAlreadyInPromotion) {
+      newStudents.push(student);
+    }
   }
+
+  // CORRECTION: Ajouter les nouveaux étudiants
+  promotion.students = [...promotion.students, ...newStudents];
+  
+  return await this.promotionRepository.save(promotion);
+}
 
   async addStudentsUsingFile(promotionId: number, file: Express.Multer.File): Promise<{
     promotion: Promotion;
@@ -94,7 +112,6 @@ export class PromotionService {
     let existingStudentsCount = 0;
 
     try {
-      // 1. Vérifier que la promotion existe
       const promotion = await this.promotionRepository.findOne({
         where: { id: promotionId },
         relations: ['students']
@@ -106,12 +123,10 @@ export class PromotionService {
         throw new Error('Promotion not found');
       }
 
-      // 2. Parser le fichier selon son type
       const studentsData = await this.parseFile(file);
 
       console.log(`Données extraites du fichier (${studentsData.length} entrées):`, studentsData);
 
-      // 3. Valider les données
       const validStudents = this.validateStudentsData(studentsData, errors);
 
       if (validStudents.length === 0) {
@@ -122,7 +137,6 @@ export class PromotionService {
       const batchSize = 50;
       const newStudents: User[] = [];
 
-      // Récupérer tous les emails existants en une seule requête
       const existingEmails = await this.userRepository
         .createQueryBuilder('user')
         .select('user.email')
@@ -132,7 +146,6 @@ export class PromotionService {
         .getMany()
         .then(users => new Set(users.map(u => u.email)));
 
-      // Traiter par lots
       for (let i = 0; i < validStudents.length; i += batchSize) {
         const batch = validStudents.slice(i, i + batchSize);
 
@@ -141,7 +154,6 @@ export class PromotionService {
             totalProcessed++;
 
             if (existingEmails.has(studentData.email)) {
-              // Étudiant existant - vérifier s'il est déjà dans la promotion
               const existingStudent = await this.userRepository.findOne({
                 where: { email: studentData.email }
               });
@@ -151,7 +163,6 @@ export class PromotionService {
               }
               existingStudentsCount++;
             } else {
-              // Nouvel étudiant - créer le compte
               const tempPassword = PasswordService.generateTemporaryPassword();
               const hashedPassword = await PasswordService.hashPassword(tempPassword);
 
@@ -171,7 +182,6 @@ export class PromotionService {
               newStudents.push(savedStudent);
               newStudentsCount++;
 
-              // Envoyer email de bienvenue de manière asynchrone
               emailService.sendAccountCreationEmail(savedStudent.email, savedStudent.firstName, tempPassword)
                 .catch(emailError => {
                   console.error(`Erreur envoi email à ${savedStudent.email}:`, emailError);
@@ -184,14 +194,12 @@ export class PromotionService {
         }
       }
 
-      // 5. Ajouter les nouveaux étudiants à la promotion
       if (newStudents.length > 0) {
         promotion.students = [...promotion.students, ...newStudents];
         await this.promotionRepository.save(promotion);
       }
 
-      // 6. Nettoyer le fichier temporaire
-      this.cleanupFile(file.path);
+if (file.path) this.cleanupFile(file.path);
 
       return {
         promotion,
@@ -211,20 +219,44 @@ export class PromotionService {
   }
 
   // Méthodes auxiliaires
-  private async parseFile(file: Express.Multer.File): Promise<StudentData[]> {
-    const extension = file.originalname.split('.').pop()?.toLowerCase();
+private async parseFile(file: Express.Multer.File): Promise<StudentData[]> {
+  const extension = file.originalname.split('.').pop()?.toLowerCase();
 
-    switch (extension) {
-      case 'csv':
-        return this.parseCSV(file.path);
-      case 'xlsx':
-      case 'xls':
-        return this.parseExcel(file.path);
-      default:
-        throw new Error(`Format de fichier non supporté: ${extension}`);
-    }
+  switch (extension) {
+    case 'csv':
+      return this.parseCSV(file.path);
+    case 'xlsx':
+    case 'xls':
+      return this.parseExcel(file.path);
+    case 'json':
+      return this.parseJSON(file.path);  // NOUVEAU
+    default:
+      throw new Error(`Format de fichier non supporté: ${extension}`);
   }
-
+}
+private parseJSON(filePath: string): StudentData[] {
+  try {
+    const content = readFileSync(filePath, 'utf-8');
+    const data = JSON.parse(content);
+    
+    // Gérer les différents formats JSON possibles
+    const studentsArray = Array.isArray(data) ? data : 
+                         Array.isArray(data.students) ? data.students : 
+                         [data];
+    
+    // Normaliser les données
+    return studentsArray
+      .map(student => ({
+        email: (student.email || student.mail || '').trim().toLowerCase(),
+        firstName: (student.prenom || student.firstName || student.first_name || '').trim(),
+        lastName: (student.nom || student.lastName || student.last_name || '').trim()
+      }))
+      .filter(s => s.email); 
+    
+  } catch (error) {
+    throw new Error(`Erreur lors de la lecture du fichier JSON: ${error.message}`);
+  }
+}
   private async parseCSV(filePath: string): Promise<StudentData[]> {
     return new Promise((resolve, reject) => {
       const results: StudentData[] = [];
@@ -345,34 +377,20 @@ export class PromotionService {
 
 
 
+
 async deletePromotion(promotionId: number): Promise<void> {
-  return await this.promotionRepository.manager.transaction(async transactionalEntityManager => {
-    const promotion = await transactionalEntityManager.findOne(Promotion, { 
-      where: { id: promotionId },
-      relations: ['projects', 'students'] 
-    });
-    
-    if (!promotion) throw new Error('Promotion not found');
-
-    const projects = await transactionalEntityManager.find(Project, {
-      where: { promotion: { id: promotionId } },
-      relations: ['groups', 'deliverables', 'reports', 'defenses', 'gradingGrids']
-    });
-
-    for (const project of projects) {
-      await transactionalEntityManager.remove(Project, project);
-    }
-
-    await transactionalEntityManager
-      .createQueryBuilder()
-      .delete()
-      .from('promotion_students_user')
-      .where('promotionId = :promotionId', { promotionId })
-      .execute();
-
-    await transactionalEntityManager.remove(Promotion, promotion);
+  const promotion = await this.promotionRepository.findOne({
+    where: { id: promotionId }
   });
+
+  if (!promotion) {
+    throw new Error('Promotion not found');
+  }
+
+  // TypeORM gère automatiquement les CASCADE grâce aux onDelete: 'CASCADE'
+  await this.promotionRepository.remove(promotion);
 }
+
 async removeStudentFromPromotion(promotionId: number, studentId: number, teacherId: number) {
   // Vérifier que la promotion existe et appartient au professeur
   const promotion = await this.promotionRepository.findOne({

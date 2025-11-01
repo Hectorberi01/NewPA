@@ -8,7 +8,7 @@ export async function ensureDatabase() {
   const port = Number(process.env.DB_PORT || 3306);
   const user = process.env.DB_USER || "root";
   const password = process.env.DB_PASSWORD || "";
-  const db = process.env.DB_NAME || "projectacademy";
+  const db = process.env.DB_NAME || "student_projects";
 
   // se connecter SANS database
   const pool = await createPool({ host, port, user, password });

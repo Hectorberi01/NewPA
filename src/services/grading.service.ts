@@ -357,7 +357,6 @@ async getGradingSessionByGridAndGroup(gridId: number, groupId: number): Promise<
     return totalWeight > 0 ? weightedSum / totalWeight : 0;
   }
 
-  // Récupérer le résumé des notes d'un projet
   async getProjectGradingSummary(projectId: number): Promise<any> {
     const project = await this.projectRepository.findOne({
       where: { id: projectId },
@@ -410,36 +409,9 @@ async getGradingSessionByGridAndGroup(gridId: number, groupId: number): Promise<
     return summary;
   }
 
-  // Exporter les notes d'un projet au format CSV
-  async exportGradesToCSV(projectId: number): Promise<string> {
-    const summary = await this.getProjectGradingSummary(projectId);
-    
-    let csv = 'Groupe,Étudiants';
-    
-    // En-têtes des grilles de notation
-    summary.gradingGrids.forEach((grid: any) => {
-      csv += `,${grid.name}`;
-    });
-    csv += ',Note Finale\n';
 
-    // Données des groupes
-    summary.groups.forEach((group: any) => {
-      csv += `${group.name},"${group.members.map((m: any) => `${m.firstName} ${m.lastName}`).join(', ')}"`;
-      
-      // Notes par grille
-      summary.gradingGrids.forEach((grid: any) => {
-        const grade = group.grades.find((g: any) => g.gridName === grid.name);
-        csv += `,${grade ? grade.totalScore?.toFixed(2) : 'Non noté'}`;
-      });
-      
-      csv += `,${group.finalGrade?.toFixed(2)}\n`;
-    });
 
-    return csv;
-  }
-
-  // Récupérer les statistiques de notation d'un projet
-  async getGradingStatistics(projectId: number): Promise<any> {
+   async getGradingStatistics(projectId: number): Promise<any> {
     const grades = await this.getGradesByProject(projectId);
     const project = await this.projectRepository.findOne({
       where: { id: projectId },
@@ -495,6 +467,51 @@ async getGradingSessionByGridAndGroup(gridId: number, groupId: number): Promise<
     return statistics;
   }
 
+async updateGridWeights(
+    projectId: number, 
+    weights: { gridId: number; weight: number }[]
+  ): Promise<GradingGrid[]> {
+    // 🔍 Récupérer toutes les grilles du projet
+    const gridIds = weights.map(w => w.gridId);
+    
+    const grids = await this.gradingGridRepository.find({
+      where: { 
+        id: In(gridIds),
+        project: { id: projectId }
+      },
+      relations: ['project']
+    });
+
+    // ✅ Vérifier que toutes les grilles existent et appartiennent au projet
+    if (grids.length !== weights.length) {
+      const foundIds = grids.map(g => g.id);
+      const missingIds = gridIds.filter(id => !foundIds.includes(id));
+      throw new Error(
+        `Les grilles suivantes n'appartiennent pas au projet ${projectId}: ${missingIds.join(', ')}`
+      );
+    }
+
+    // ✅ Mise à jour en transaction (tout ou rien)
+    const updatedGrids: GradingGrid[] = [];
+    
+    await this.gradingGridRepository.manager.transaction(async (manager) => {
+      for (const { gridId, weight } of weights) {
+        await manager.update(GradingGrid, { id: gridId }, { weight });
+        
+        // Récupérer la grille mise à jour
+        const updatedGrid = await manager.findOne(GradingGrid, { 
+          where: { id: gridId },
+          relations: ['project', 'criteria']
+        });
+        
+        if (updatedGrid) {
+          updatedGrids.push(updatedGrid);
+        }
+      }
+    });
+
+    return updatedGrids;
+  }
   private calculateMedian(scores: number[]): number {
     const sorted = scores.sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);

@@ -8,7 +8,44 @@ export class DeliverableController {
   constructor() {
     this.deliverableService = new DeliverableService();
   }
+async getGroupSubmission(req: Request, res: Response) {
+    try {
+      console.log('Params received:', req.params);
+      
+      const deliverableId = parseInt(req.params.deliverableId);
+      const groupId = parseInt(req.params.groupId);
 
+      // Validation des paramètres
+      if (isNaN(deliverableId) || isNaN(groupId)) {
+        return res.status(400).json({ 
+          error: 'Invalid parameters',
+          details: `deliverableId: ${req.params.deliverableId}, groupId: ${req.params.groupId}`
+        });
+      }
+
+      console.log(`Fetching submission for deliverable ${deliverableId}, group ${groupId}`);
+
+      const submission = await this.deliverableService.getGroupSubmission(deliverableId, groupId);
+      
+      if (!submission) {
+        console.log('No submission found');
+        return res.status(404).json({ 
+          error: 'Submission not found',
+          message: `No submission found for deliverable ${deliverableId} and group ${groupId}`
+        });
+      }
+
+      console.log('Submission found:', submission.id);
+      res.json(submission);
+    } catch (error: any) {
+      console.error('Error in getGroupSubmission:', error);
+      res.status(500).json({ 
+        error: 'Internal Server Error',
+        message: error.message,
+        details: 'Check server logs for more information'
+      });
+    }
+  }
   /**
    * @swagger
    * /api/deliverables:
@@ -69,6 +106,29 @@ export class DeliverableController {
       res.status(500).json({ error: 'Internal Server Error' });
     }
   }
+async validateDeliverable(req: Request, res: Response): Promise<void> {
+  try {
+    const deliverableId = parseInt(req.params.id);
+    const { groupId, gitUrl } = req.body;
+    const file = req.file;
+
+    if (!groupId) {
+      res.status(400).json({ error: 'Group ID is required' });
+      return;
+    }
+
+    const validationResults = await this.deliverableService.validateDeliverableBeforeSubmit(
+      deliverableId,
+      parseInt(groupId),
+      file,
+      gitUrl
+    );
+
+    res.json(validationResults);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+}
 
   /**
    * @swagger
@@ -378,4 +438,5 @@ export class DeliverableController {
       next(err);
     }
   }
+  
 }

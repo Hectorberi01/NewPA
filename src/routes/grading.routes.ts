@@ -121,6 +121,12 @@ router.get(
   authMiddleware,
   gradingController.getGradingSessionsByProject.bind(gradingController)
 );
+router.put(
+  '/projects/:projectId/weights',
+  authMiddleware,
+  requireTeacher,
+  gradingController.updateGridWeights.bind(gradingController)
+);
 export default router;
 
 

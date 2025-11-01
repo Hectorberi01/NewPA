@@ -125,7 +125,65 @@ export class DeliverableService {
       order: { submittedAt: 'ASC' }
     });
   }
+async validateDeliverableBeforeSubmit(
+  deliverableId: number,
+  groupId: number,
+  file?: Express.Multer.File,
+  gitUrl?: string
+): Promise<any> {
+  const deliverable = await this.deliverableRepository.findOne({
+    where: { id: deliverableId },
+    relations: ['validationRules']
+  });
 
+  if (!deliverable) throw new Error('Deliverable not found');
+
+  const validationResults = {
+    allPassed: true,
+    rules: [] as any[]
+  };
+
+  // Simulation de validation - à adapter selon vos règles
+  if (deliverable.type === 'archive' && file) {
+    // Valider la taille du fichier
+    const maxSizeMB = 10; // Récupérer depuis les règles
+    if (file.size > maxSizeMB * 1024 * 1024) {
+      validationResults.rules.push({
+        type: 'max_size',
+        passed: false,
+        message: `Fichier trop volumineux. Maximum: ${maxSizeMB}MB`
+      });
+      validationResults.allPassed = false;
+    } else {
+      validationResults.rules.push({
+        type: 'max_size',
+        passed: true,
+        message: 'Taille du fichier valide'
+      });
+    }
+  }
+
+  if (deliverable.type === 'git_link' && gitUrl) {
+    // Valider l'URL Git
+    const gitUrlRegex = /^(https?:\/\/)?(www\.)?github\.com\/[a-zA-Z0-9-]+\/[a-zA-Z0-9-_.]+$/;
+    if (!gitUrlRegex.test(gitUrl)) {
+      validationResults.rules.push({
+        type: 'git_url',
+        passed: false,
+        message: 'URL Git invalide'
+      });
+      validationResults.allPassed = false;
+    } else {
+      validationResults.rules.push({
+        type: 'git_url',
+        passed: true,
+        message: 'URL Git valide'
+      });
+    }
+  }
+
+  return validationResults;
+}
   async getDeliverablesByProject(projectId: number): Promise<Deliverable[]> {
     return await this.deliverableRepository.find({
       where: { project: { id: projectId } },
@@ -166,6 +224,36 @@ export class DeliverableService {
       aggregates: withAggregates
     };
   }
+  // Dans DeliverableService.ts - Ajoutez cette méthode
+async getGroupSubmission(deliverableId: number, groupId: number): Promise<DeliverableSubmission | null> {
+  // Validation des IDs
+  if (isNaN(deliverableId) || isNaN(groupId) || deliverableId <= 0 || groupId <= 0) {
+    throw new Error('Invalid deliverable or group ID');
+  }
+
+  try {
+    const submission = await this.submissionRepository.findOne({
+      where: { 
+        deliverable: { id: deliverableId },
+        group: { id: groupId }
+      },
+      relations: [
+        'group', 
+        'group.members', 
+        'deliverable',
+        'deliverable.validationRules'
+      ],
+      order: {
+        submittedAt: 'DESC' // Prendre la dernière soumission
+      }
+    });
+
+    return submission;
+  } catch (error) {
+    console.error('Error fetching group submission:', error);
+    throw new Error('Failed to fetch submission');
+  }
+}
 
 
 
