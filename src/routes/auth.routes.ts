@@ -13,7 +13,6 @@ const { loginWithGoogleOrAzure } = require('../services/auth.service');
 dotenv.config();
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
-// ===== VALIDATIONS MANQUANTES =====
 const validateForgotPassword = [
   body('email').isEmail().withMessage('Invalid email format'),
   handleValidationErrors
@@ -39,24 +38,19 @@ const validateOAuthToken = [
   handleValidationErrors
 ];
 
-// ===== ROUTES MANQUANTES À AJOUTER =====
 
-// Routes de réinitialisation de mot de passe
 router.post('/forgot-password', validateForgotPassword, 
   authController.forgotPassword.bind(authController));
 
 router.post('/reset-password', validateResetPassword, 
   authController.resetPassword.bind(authController));
 
-// Route de rafraîchissement de token
 router.post('/refresh', validateRefreshToken, 
   authController.refreshToken.bind(authController));
 
-// Route OAuth Microsoft 
 router.post('/oauth/microsoft', validateOAuthToken, 
   authController.microsoftOAuth.bind(authController));
 
-// Route OAuth Google
 router.get('/google', 
   passport.authenticate('google', { 
     scope: ['profile', 'email'],

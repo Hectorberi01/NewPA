@@ -91,7 +91,6 @@ export class SimilarityEngine {
   }
 }
 
-// --- helpers ---
 function groupBy<T>(arr: T[], fn: (x: T) => string): Map<string, T[]> {
   const m = new Map<string, T[]>();
   for (const x of arr) {

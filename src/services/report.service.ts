@@ -15,25 +15,19 @@ export class ReportService {
     this.sectionConfigRepository = AppDataSource.getRepository(ReportSectionConfig);
   }
 
-  // ========================================
-  // CONFIGURATION (Enseignant)
-  // ========================================
 
  async saveReportConfig(projectId: number, configData: any): Promise<ReportConfig> {
-  // 1️⃣ Chercher la config existante
   let config = await this.configRepository.findOne({
     where: { projectId },
     relations: ['sections']
   });
 
   if (config) {
-    // Mettre à jour la config principale
     config.isEnabled = configData.isEnabled;
     config.format = configData.format || 'markdown';
     config.instructions = configData.instructions;
     config.deadline = configData.deadline;
   } else {
-    // Créer une nouvelle config
     config = this.configRepository.create({
       projectId,
       isEnabled: configData.isEnabled,
@@ -43,14 +37,11 @@ export class ReportService {
     });
   }
 
-  // Sauvegarder la config pour avoir un ID
   await this.configRepository.save(config);
 
-  // 2️⃣ Gérer les sections
   const existingSections = config.sections || [];
   const incomingSections = Array.isArray(configData.sections) ? configData.sections : [];
 
-  // Créer ou mettre à jour chaque section
   for (const sectionData of incomingSections) {
     if (sectionData.id) {
       // Mettre à jour une section existante
@@ -75,7 +66,6 @@ export class ReportService {
     }
   }
 
-  // 3️⃣ Supprimer les sections qui ont été retirées côté frontend
   const incomingIds = incomingSections.filter(s => s.id).map(s => s.id);
   const toDelete = existingSections
     .filter(s => !incomingIds.includes(s.id))
@@ -85,7 +75,6 @@ export class ReportService {
     await this.sectionConfigRepository.delete(toDelete);
   }
 
-  // 4️⃣ Recharger la config avec sections
   const updatedConfig = await this.configRepository.findOne({
     where: { id: config.id },
     relations: ['sections']
@@ -102,9 +91,6 @@ export class ReportService {
     });
   }
 
-  // ========================================
-  // RÉDACTION ÉTUDIANTS
-  // ========================================
 
   async getGroupReport(projectId: number, groupId: number): Promise<Report> {
     let report = await this.reportRepository.findOne({
@@ -207,9 +193,6 @@ export class ReportService {
     return await this.reportRepository.save(report);
   }
 
-  // ========================================
-  // VISUALISATION (Enseignant)
-  // ========================================
 
   async getReportsByProject(projectId: number): Promise<Report[]> {
     return await this.reportRepository
@@ -238,9 +221,6 @@ export class ReportService {
     });
   }
 
-  // ========================================
-  // ANCIEN SYSTÈME (À conserver pour compatibilité)
-  // ========================================
 
   async createReport(projectId: number, groupId: number, title: string, description: string): Promise<Report> {
     const report = this.reportRepository.create({
@@ -289,10 +269,6 @@ export class ReportService {
   
 
 
-// Supprimer tous les rapports d'un projet
-
-
-// Supprimer une section de configuration
 async deleteSectionConfig(sectionConfigId: number): Promise<void> {
   const section = await this.sectionConfigRepository.findOne({
     where: { id: sectionConfigId }
@@ -302,14 +278,11 @@ async deleteSectionConfig(sectionConfigId: number): Promise<void> {
     throw new Error('Section de configuration non trouvée');
   }
 
-  // Supprimer toutes les sections de rapports qui utilisent cette config
   await this.sectionRepository.delete({ sectionConfigId });
 
-  // Supprimer la section de configuration
   await this.sectionConfigRepository.delete(sectionConfigId);
 }
 
-// Supprimer la configuration complète d'un projet
 async deleteReportConfig(projectId: number): Promise<void> {
   const config = await this.configRepository.findOne({
     where: { projectId },
@@ -320,24 +293,19 @@ async deleteReportConfig(projectId: number): Promise<void> {
     throw new Error('Configuration non trouvée');
   }
 
-  // Supprimer toutes les sections de configuration
   if (config.sections && config.sections.length > 0) {
     const sectionIds = config.sections.map(s => s.id);
     
-    // Supprimer les sections de rapports associées
     for (const sectionId of sectionIds) {
       await this.sectionRepository.delete({ sectionConfigId: sectionId });
     }
     
-    // Supprimer les sections de config
     await this.sectionConfigRepository.delete(sectionIds);
   }
 
-  // Supprimer la configuration
   await this.configRepository.delete(config.id);
 }
 
-// Supprimer tous les rapports d'un projet
 async deleteReportsByProject(projectId: number): Promise<void> {
   const reports = await this.reportRepository.find({
     where: { projectId },
@@ -345,13 +313,11 @@ async deleteReportsByProject(projectId: number): Promise<void> {
   });
 
   for (const report of reports) {
-    // Supprimer les sections du rapport
     if (report.sections && report.sections.length > 0) {
       const sectionIds = report.sections.map(s => s.id);
       await this.sectionRepository.delete(sectionIds);
     }
     
-    // Supprimer le rapport
     await this.reportRepository.delete(report.id);
   }
 }

@@ -5,7 +5,6 @@ const SUPPORTED_TEXT = new Set(['txt', 'js', 'ts', 'java', 'py', 'cpp', 'pdf', '
 const DEFAULTS = { k: 5, minTokens: 40 };
 
 const STOPWORDS = new Set([
-  // fr + en (mini set, étends si besoin)
   'le','la','les','de','du','des','un','une','et','ou','a','à','aux','au','est','sont','pour','par','avec','sur','dans','en','que','qui',
   'the','a','an','and','or','of','to','for','in','on','is','are','this','that','it','as','by','be','from','at'
 ]);

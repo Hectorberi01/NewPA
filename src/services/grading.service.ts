@@ -471,7 +471,6 @@ async updateGridWeights(
     projectId: number, 
     weights: { gridId: number; weight: number }[]
   ): Promise<GradingGrid[]> {
-    // 🔍 Récupérer toutes les grilles du projet
     const gridIds = weights.map(w => w.gridId);
     
     const grids = await this.gradingGridRepository.find({
@@ -482,7 +481,6 @@ async updateGridWeights(
       relations: ['project']
     });
 
-    // ✅ Vérifier que toutes les grilles existent et appartiennent au projet
     if (grids.length !== weights.length) {
       const foundIds = grids.map(g => g.id);
       const missingIds = gridIds.filter(id => !foundIds.includes(id));
@@ -491,7 +489,6 @@ async updateGridWeights(
       );
     }
 
-    // ✅ Mise à jour en transaction (tout ou rien)
     const updatedGrids: GradingGrid[] = [];
     
     await this.gradingGridRepository.manager.transaction(async (manager) => {
@@ -583,7 +580,6 @@ async updateGridWeights(
 
 
 
-// Dans grading.service.ts
 
 async getOrCreateGradingSession(
   gridId: number, 
@@ -608,8 +604,7 @@ async getOrCreateGradingSession(
     return existingGrade;
   }
 
-  // Si pas de session, retourner null
-  // Le frontend créera une nouvelle session
+ 
   return null;
 }
 
@@ -645,7 +640,6 @@ async saveGradingSession(
   let grade: Grade;
 
   if (gradeId && gradeId > 0) {
-    // Mise à jour d'une session existante
     const existingGrade = await this.gradeRepository.findOne({
       where: { id: gradeId },
       relations: ['criterionGrades']
@@ -663,7 +657,6 @@ async saveGradingSession(
       await this.criterionGradeRepository.remove(grade.criterionGrades);
     }
   } else {
-    // Création d'une nouvelle session
     grade = this.gradeRepository.create({
       gradingGrid: grid,
       group: group,
@@ -710,13 +703,11 @@ async saveGradingSession(
   return result;
 }
 
-// Dans grading.service.ts
 
 
 async getStudentGrades(userId: number) {
   const gradeRepo = AppDataSource.getRepository(Grade);
   
-  // Récupérer tous les groupes de l'étudiant
   const userRepo = AppDataSource.getRepository(User);
   const user = await userRepo.findOne({
     where: { id: userId },
@@ -729,7 +720,6 @@ async getStudentGrades(userId: number) {
   
   const groupIds = user.groups.map(g => g.id);
   
-  // Récupérer toutes les notes validées pour ces groupes
   const grades = await gradeRepo.find({
     where: {
       group: { id: In(groupIds) },
@@ -747,7 +737,6 @@ async getStudentGrades(userId: number) {
     }
   });
   
-  // Formater les données pour le frontend
   return grades.map(grade => ({
     id: grade.id,
     projectName: grade.group.project.name,
@@ -772,7 +761,6 @@ async getStudentGrades(userId: number) {
 async getStudentProjectGrades(userId: number, projectId: number) {
   const gradeRepo = AppDataSource.getRepository(Grade);
   
-  // Trouver le groupe de l'étudiant pour ce projet
   const groupRepo = AppDataSource.getRepository(Group);
   const group = await groupRepo
     .createQueryBuilder('group')
@@ -850,7 +838,6 @@ async getGradeDetailsForStudent(userId: number, gradeId: number) {
     return null;
   }
   
-  // Vérifier que l'étudiant fait partie du groupe
   const isMember = grade.group.members.some(m => m.id === userId);
   if (!isMember) {
     throw new Error('Accès non autorisé à cette note');
@@ -890,11 +877,7 @@ private calculateMaxScore(grid: GradingGrid): number {
   }, 0);
 }
 
-// Ajoutez ces méthodes dans votre GradingService
 
-/**
- * Récupère toutes les sessions de notation pour un projet
- */
 async getGradingSessions(projectId: number, type?: string): Promise<any[]> {
   const query = this.gradeRepository
     .createQueryBuilder('grade')
@@ -911,7 +894,6 @@ async getGradingSessions(projectId: number, type?: string): Promise<any[]> {
 
   const grades = await query.getMany();
 
-  // Transformer les données pour correspondre au format attendu par le frontend
   return grades.map(grade => ({
     id: grade.id,
     gridId: grade.gradingGrid.id,
@@ -933,9 +915,7 @@ async getGradingSessions(projectId: number, type?: string): Promise<any[]> {
   }));
 }
 
-/**
- * Récupère une session de notation par son ID
- */
+
 async getGradingSessionById(id: number): Promise<any> {
   const grade = await this.gradeRepository.findOne({
     where: { id },
@@ -974,9 +954,6 @@ async getGradingSessionById(id: number): Promise<any> {
   };
 }
 
-/**
- * Crée ou met à jour une session de notation (pour la route POST/PUT /sessions)
- */
 async createOrUpdateGradingSession(sessionData: {
   id?: number;
   gridId: number;
@@ -993,7 +970,6 @@ async createOrUpdateGradingSession(sessionData: {
 }): Promise<any> {
   const { id, gridId, groupId, entries, globalComment, totalScore, status } = sessionData;
 
-  // Vérifier que la grille existe
   const grid = await this.gradingGridRepository.findOne({
     where: { id: gridId },
     relations: ['criteria']
@@ -1003,7 +979,6 @@ async createOrUpdateGradingSession(sessionData: {
     throw new Error('Grading grid not found');
   }
 
-  // Vérifier que le groupe existe
   const group = await this.groupRepository.findOne({ 
     where: { id: groupId } 
   });
@@ -1015,7 +990,6 @@ async createOrUpdateGradingSession(sessionData: {
   let grade: Grade;
 
   if (id && id > 0) {
-    // Mise à jour d'une session existante
     grade = await this.gradeRepository.findOne({
       where: { id },
       relations: ['criterionGrades']
@@ -1029,12 +1003,10 @@ async createOrUpdateGradingSession(sessionData: {
     grade.totalScore = totalScore;
     grade.isValidated = status === 'validated';
 
-    // Supprimer les anciennes notes de critères
     if (grade.criterionGrades && grade.criterionGrades.length > 0) {
       await this.criterionGradeRepository.remove(grade.criterionGrades);
     }
   } else {
-    // Création d'une nouvelle session
     grade = this.gradeRepository.create({
       gradingGrid: grid,
       group: group,
@@ -1046,7 +1018,6 @@ async createOrUpdateGradingSession(sessionData: {
 
   const savedGrade = await this.gradeRepository.save(grade);
 
-  // Créer les notes de critères
   const criterionGrades: CriterionGrade[] = [];
 
   for (const entry of entries) {
@@ -1070,7 +1041,6 @@ async createOrUpdateGradingSession(sessionData: {
     await this.criterionGradeRepository.save(criterionGrades);
   }
 
-  // Recharger avec toutes les relations pour le retour
   const result = await this.gradeRepository.findOne({
     where: { id: savedGrade.id },
     relations: [
@@ -1086,7 +1056,6 @@ async createOrUpdateGradingSession(sessionData: {
     throw new Error('Grade not found after saving');
   }
 
-  // Retourner au format session
   return {
     id: result.id,
     gridId: result.gradingGrid.id,
@@ -1108,9 +1077,7 @@ async createOrUpdateGradingSession(sessionData: {
   };
 }
 
-/**
- * Récupère les grilles de notation par type
- */
+
 async getGradingGridsByProjectAndType(projectId: number, type: 'deliverable' | 'report' | 'defense'): Promise<GradingGrid[]> {
   return await this.gradingGridRepository.find({
     where: { 

@@ -455,7 +455,6 @@ export class AuthService {
     return user;
   }
 
-  // ===== MÉTHODES PRIVÉES =====
 
   /**
    * Générer un token d'accès

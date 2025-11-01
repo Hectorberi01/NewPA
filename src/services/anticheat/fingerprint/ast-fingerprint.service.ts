@@ -40,7 +40,6 @@ export class AstFingerprintService implements FingerprintService {
         language: file.language
       }];
     } catch {
-      // échec parsing → empreinte vide (ne bloque pas le pipeline)
       return [{
         submissionId: file.submissionId,
         filePath: file.filePath,
@@ -53,7 +52,6 @@ export class AstFingerprintService implements FingerprintService {
     }
   }
 
-  // --- Helpers AST ---
 
   private normalizeAst(node: any): any {
     if (!node || typeof node !== 'object') return node;

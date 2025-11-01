@@ -66,9 +66,6 @@ router.get('/projects/:projectId/report-config',
 
 
 
-// ========================================
-// RÉDACTION (Étudiant)
-// ========================================
 
 router.get('/groups/:groupId/projects/:projectId', 
   authMiddleware, 

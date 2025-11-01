@@ -541,13 +541,13 @@ export class GradingGrid {
   updatedAt!: Date;
 
   // Relations
-  @ManyToOne(() => Project, project => project.gradingGrids, { onDelete: 'CASCADE' }) // AJOUT de onDelete: 'CASCADE'
+  @ManyToOne(() => Project, project => project.gradingGrids, { onDelete: 'CASCADE' })
   project!: Project;
 
-  @OneToMany(() => GradingCriterion, criterion => criterion.gradingGrid, { cascade: true, onDelete: 'CASCADE' }) // AJOUT de onDelete: 'CASCADE'
+  @OneToMany(() => GradingCriterion, criterion => criterion.gradingGrid, { cascade: true, onDelete: 'CASCADE' })
   criteria!: GradingCriterion[];
 
-  @OneToMany(() => Grade, grade => grade.gradingGrid, { onDelete: 'CASCADE' }) // AJOUT de onDelete: 'CASCADE'
+  @OneToMany(() => Grade, grade => grade.gradingGrid, { onDelete: 'CASCADE' })
   grades!: Grade[];
 }
 
@@ -574,11 +574,10 @@ export class GradingCriterion {
   @Column({ default: false })
   hasComments!: boolean;
 
-  // Relations
-  @ManyToOne(() => GradingGrid, gradingGrid => gradingGrid.criteria, { onDelete: 'CASCADE' }) // AJOUT de onDelete: 'CASCADE'
+  @ManyToOne(() => GradingGrid, gradingGrid => gradingGrid.criteria, { onDelete: 'CASCADE' }) 
   gradingGrid!: GradingGrid;
 
-  @OneToMany(() => CriterionGrade, criterionGrade => criterionGrade.criterion, { onDelete: 'CASCADE' }) // AJOUT de onDelete: 'CASCADE'
+  @OneToMany(() => CriterionGrade, criterionGrade => criterionGrade.criterion, { onDelete: 'CASCADE' }) 
   criterionGrades!: CriterionGrade[];
 }
 

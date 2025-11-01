@@ -2,7 +2,6 @@ export * from './fingerprint.types';
 export * from './text-fingerprint.service';
 export * from './ast-fingerprint.service';
 export * from './java-ast-fingerprint.service';
-// Helpers pratiques
 import { ExtractedFile, Fingerprint, FingerprintService } from './fingerprint.types';
 import { TextFingerprintService } from './text-fingerprint.service';
 import { AstFingerprintService } from './ast-fingerprint.service';

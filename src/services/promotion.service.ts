@@ -133,7 +133,6 @@ async addStudentsToPromotion(promotionId: number, studentsListe: StudentData[]):
         throw new Error('Aucun étudiant valide trouvé dans le fichier');
       }
 
-      // 4. Traitement par batch pour optimiser les performances
       const batchSize = 50;
       const newStudents: User[] = [];
 
@@ -229,7 +228,7 @@ private async parseFile(file: Express.Multer.File): Promise<StudentData[]> {
     case 'xls':
       return this.parseExcel(file.path);
     case 'json':
-      return this.parseJSON(file.path);  // NOUVEAU
+      return this.parseJSON(file.path); 
     default:
       throw new Error(`Format de fichier non supporté: ${extension}`);
   }
@@ -239,12 +238,10 @@ private parseJSON(filePath: string): StudentData[] {
     const content = readFileSync(filePath, 'utf-8');
     const data = JSON.parse(content);
     
-    // Gérer les différents formats JSON possibles
     const studentsArray = Array.isArray(data) ? data : 
                          Array.isArray(data.students) ? data.students : 
                          [data];
     
-    // Normaliser les données
     return studentsArray
       .map(student => ({
         email: (student.email || student.mail || '').trim().toLowerCase(),
@@ -268,13 +265,12 @@ private parseJSON(filePath: string): StudentData[] {
         .pipe(iconv.decodeStream("win1252"))
         .pipe(stripBom())
         .pipe(csv({
-          separator: ";", // <- clé: ton CSV est "nom;prenom;email"
+          separator: ";",
           mapHeaders: ({ header }) => header.replace(/^\uFEFF/, "").toLowerCase().trim(),
           skipLines: 0,
           strict: false,
         }))
         .on("data", (row) => {
-          // console.log("Row:", row)
           const email = pick(row, "email", "e-mail", "mail");
           const firstName = pick(row, "prenom", "firstname", "first_name", "first name");
           const lastName = pick(row, "nom", "lastname", "last_name", "last name");
@@ -298,7 +294,6 @@ private parseJSON(filePath: string): StudentData[] {
       blankrows: false
     }) as string[][];
 
-    // Récupérer les headers (première ligne)
     const headers = jsonData[0]?.map(h => h.toLowerCase().trim()) || [];
     const emailIndex = this.findColumnIndex(headers, ['email', 'e-mail', 'mail']);
     const firstNameIndex = this.findColumnIndex(headers, ['prenom', 'prénom', 'firstname', 'first_name']);
@@ -308,9 +303,8 @@ private parseJSON(filePath: string): StudentData[] {
       throw new Error('Colonne email non trouvée dans le fichier Excel');
     }
 
-    // Parser les données (ignorer la ligne d'en-tête)
     return jsonData.slice(1)
-      .filter(row => row[emailIndex]?.trim()) // Ignorer les lignes sans email
+      .filter(row => row[emailIndex]?.trim()) 
       .map(row => ({
         email: row[emailIndex]?.trim(),
         firstName: firstNameIndex !== -1 ? row[firstNameIndex]?.trim() : undefined,
@@ -330,21 +324,18 @@ private parseJSON(filePath: string): StudentData[] {
     const seenEmails = new Set<string>();
 
     studentsData.forEach((student, index) => {
-      const lineNumber = index + 2; // +2 car index commence à 0 et on ignore la ligne d'en-tête
+      const lineNumber = index + 2; 
 
-      // Vérifier que l'email existe
       if (!student.email) {
         errors.push(`Ligne ${lineNumber}: Email manquant`);
         return;
       }
 
-      // Valider le format de l'email
       if (!emailRegex.test(student.email)) {
         errors.push(`Ligne ${lineNumber}: Format d'email invalide (${student.email})`);
         return;
       }
 
-      // Vérifier les doublons dans le fichier
       if (seenEmails.has(student.email.toLowerCase())) {
         errors.push(`Ligne ${lineNumber}: Email en double (${student.email})`);
         return;
@@ -353,7 +344,7 @@ private parseJSON(filePath: string): StudentData[] {
       seenEmails.add(student.email.toLowerCase());
       validStudents.push({
         ...student,
-        email: student.email.toLowerCase() // Normaliser l'email
+        email: student.email.toLowerCase() 
       });
     });
 
@@ -387,12 +378,10 @@ async deletePromotion(promotionId: number): Promise<void> {
     throw new Error('Promotion not found');
   }
 
-  // TypeORM gère automatiquement les CASCADE grâce aux onDelete: 'CASCADE'
   await this.promotionRepository.remove(promotion);
 }
 
 async removeStudentFromPromotion(promotionId: number, studentId: number, teacherId: number) {
-  // Vérifier que la promotion existe et appartient au professeur
   const promotion = await this.promotionRepository.findOne({
     where: { 
       id: promotionId,
@@ -422,11 +411,11 @@ async removeStudentFromPromotion(promotionId: number, studentId: number, teacher
   private async sendWelcomeEmailAsync(student: User, tempPassword: string): Promise<void> {
     try {
       const emailService = new EmailService();
-      /*await emailService.sendAccountCreationEmail(
+      await emailService.sendAccountCreationEmail(
         student.email, 
         student.firstName, 
         tempPassword
-      );*/
+      );
       console.log(`✅ Email envoyé à ${student.email}`);
     } catch (emailError) {
       console.error(`❌ Erreur email pour ${student.email}:`, emailError);
