@@ -15,17 +15,27 @@ export function buildAntiCheatRouter(ds: DataSource) {
   const UPLOAD_DIR = path.resolve(process.cwd(), 'uploads');
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
-  // Stockage qui conserve l’extension
   const storage = multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
     filename: (_req, file, cb) => {
-      const ext = path.extname(file.originalname).toLowerCase(); // ex: .zip
+      const ext = path.extname(file.originalname).toLowerCase();
       const name = `file-${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
       cb(null, name);
     },
   });
 
-  const allowed = new Set(['.zip', '.txt', '.js', '.ts', '.java', '.py', '.cpp', '.pdf', '.docx', '.xlsx']);
+  const allowed = new Set([
+    '.zip',
+    '.txt',
+    '.js',
+    '.ts',
+    '.java',
+    '.py',
+    '.cpp',
+    '.pdf',
+    '.docx',
+    '.xlsx',
+  ]);
 
   const upload = multer({
     storage,
@@ -37,10 +47,13 @@ export function buildAntiCheatRouter(ds: DataSource) {
     },
   });
 
-  // Routes
   r.post('/submissions', authMiddleware, upload.single('file'), ctrl.uploadAndAnalyze);
   r.get('/submissions/:id/similarity', authMiddleware, ctrl.getSimilaritySummary);
   r.post('/similarity/compare', authMiddleware, ctrl.comparePair);
+
+  // POST /api/anticheat/deliverables/:id/scan
+  // → compare TOUTES les submissions de ce livrable entre elles (sans s’auto‐comparer)
+  r.post('/deliverables/:id/scan', authMiddleware, ctrl.scanDeliverable);
 
   return r;
 }

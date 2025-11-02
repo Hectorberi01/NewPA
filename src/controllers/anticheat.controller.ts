@@ -1,3 +1,4 @@
+// src/controllers/anticheat.controller.ts
 import { Request, Response } from 'express';
 import { DataSource } from 'typeorm';
 import { AntiCheatService } from '../services/anticheat/anticheat.service';
@@ -8,7 +9,7 @@ import { AggregatorService } from '../services/anticheat/aggregator/aggregator.s
 export class AntiCheatController {
   constructor(private ds: DataSource) {}
 
-  // POST /api/submissions  (multipart/form-data: file, deliverableId, groupId)
+  // POST /api/submissions
   uploadAndAnalyze = async (req: Request, res: Response) => {
     try {
       const { deliverableId, groupId } = req.body;
@@ -52,25 +53,30 @@ export class AntiCheatController {
     }
   };
 
-  // POST /api/similarity/compare  (JSON: { submissionId1, submissionId2 })
+  // POST /api/similarity/compare
   comparePair = async (req: Request, res: Response) => {
     try {
       const a = Number((req.body as any)?.submissionId1);
       const b = Number((req.body as any)?.submissionId2);
 
       if (!Number.isInteger(a) || !Number.isInteger(b)) {
-        return res.status(400).json({ error: 'submissionId1 et submissionId2 doivent être des entiers.' });
+        return res
+          .status(400)
+          .json({ error: 'submissionId1 et submissionId2 doivent être des entiers.' });
       }
       if (a === b) {
         return res.status(400).json({ error: 'Les deux ids doivent être différents.' });
       }
 
-      // 1) Compare
-      const engine = new SimilarityEngine(this.ds, { fusion: 'max', alpha: 0.6, minHashes: 5, minScorePerKind: 0.02 });
+      const engine = new SimilarityEngine(this.ds, {
+        fusion: 'max',
+        alpha: 0.6,
+        minHashes: 5,
+        minScorePerKind: 0.02,
+      });
       const pairScores = await engine.compare(a, b);
 
-      // 2) Persiste les meilleurs scores + 3) mets à jour les agrégats des deux soumissions
-      const agg = new AggregatorService(this.ds, { threshold: 0.6, topPerPair: 3 });
+      const agg = new AggregatorService(this.ds, { threshold: 0.0, topPerPair: 50 });
       const savedResults = pairScores.length ? await agg.persistPairScores(pairScores) : 0;
 
       const [aggA, aggB] = await Promise.all([
@@ -78,7 +84,6 @@ export class AntiCheatController {
         agg.updateSubmissionAggregates(b),
       ]);
 
-      // 4) Top matches pour affichage
       const [topA, topB] = await Promise.all([
         agg.findTopMatches(a, 10),
         agg.findTopMatches(b, 10),
@@ -89,11 +94,34 @@ export class AntiCheatController {
         savedResults,
         aggregates: { left: aggA, right: aggB },
         topMatches: { left: topA, right: topB },
-        // optionnel: renvoyer seulement les 10 meilleurs détails
         pairScores: pairScores.slice(0, 10),
       });
     } catch (err: any) {
       console.error('comparePair error:', err);
+      return res.status(500).json({ error: err?.message ?? 'Internal Server Error' });
+    }
+  };
+
+  // POST /api/anticheat/deliverables/:id/scan
+  scanDeliverable = async (req: Request, res: Response) => {
+    try {
+      const deliverableId = Number(req.params.id);
+      if (!Number.isInteger(deliverableId)) {
+        return res.status(400).json({ error: 'deliverableId invalide' });
+      }
+
+      const svc = new AntiCheatService(this.ds);
+      const out = await svc.runFullScanForDeliverable(deliverableId);
+
+      return res.json({
+        deliverableId,
+        totalSubmissions: out.totalSubmissions,
+        processed: out.processed,
+        comparisons: out.comparisons,
+        suspicious: out.suspicious,
+      });
+    } catch (err: any) {
+      console.error('scanDeliverable error:', err);
       return res.status(500).json({ error: err?.message ?? 'Internal Server Error' });
     }
   };

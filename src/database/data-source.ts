@@ -20,7 +20,7 @@ const DB_USERNAME = process.env.DB_USERNAME ?? process.env.DB_USER ?? 'root';
     password: DB_PASSWORD,
     database: DB_DATABASE,
     synchronize: true,
-    logging: true,
+    logging: false,
     entities: [User, Project, Promotion, Group, Deliverable, DeliverableRule, DeliverableSubmission, Report,
       ReportSection, Defense, GradingGrid, GradingCriterion, Grade, CriterionGrade, SubmissionFingerprint, SimilarityResult,
       ReportConfig , ReportSectionConfig
