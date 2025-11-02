@@ -1,6 +1,7 @@
 services:
   db:
     image: mysql:8.0
+    platform: linux/arm64/v8
     container_name: mysql-sp
     restart: unless-stopped
     environment:
@@ -10,18 +11,19 @@ services:
       MYSQL_PASSWORD: sp_password
     volumes:
       - db_data:/var/lib/mysql
-    # expose si tu veux accéder depuis l'hôte; sinon enlève la section "ports"
-    # ports:
-    #   - "3307:3306"          # ← préfère 3307:3306 pour éviter le conflit sur 3306
+    ports:
+      - "3307:3306"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-proot"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     networks: [backend]
 
   api:
     build: .
+    platform: linux/arm64/v8  # ← Au niveau du service, pas dans build
     container_name: promotions-service
     restart: unless-stopped
     depends_on:
@@ -29,7 +31,7 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: development
-      DB_HOST: db                   # ← important : le nom du service MySQL
+      DB_HOST: db
       DB_PORT: "3306"
       DB_USERNAME: sp
       DB_PASSWORD: sp_password
@@ -38,7 +40,7 @@ services:
     ports:
       - "4000:4000"
     volumes:
-      - ./uploads:/app/uploads      # persister les fichiers uploadés
+      - ./uploads:/app/uploads
     networks: [backend]
 
 networks:

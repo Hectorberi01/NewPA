@@ -290,5 +290,8 @@ async function insertTestData() {
     }
 }
 
-// Exécuter le script
-insertTestData();
+if (require.main === module) {
+  insertTestData()
+    .then(() => process.exit(0))
+    .catch((e) => { console.error(e); process.exit(1); });
+}

@@ -1,4 +1,4 @@
-FROM node:24-slim
+FROM --platform=linux/arm64/v8 node:24-slim
 WORKDIR /app
 
 # deps
