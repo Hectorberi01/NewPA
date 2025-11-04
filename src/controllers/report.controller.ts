@@ -24,10 +24,14 @@ export class ReportController {
    *             type: object
    *             required: [projectId, groupId, title]
    *             properties:
-   *               projectId: { type: integer }
-   *               groupId: { type: integer }
-   *               title: { type: string }
-   *               description: { type: string }
+   *               projectId: 
+   *                 type: integer
+   *               groupId:
+   *                 type: integer
+   *               title:
+   *                 type: string
+   *               description:
+   *                 type: string
    *     responses:
    *       201: { description: Rapport créé avec succès }
    */
@@ -53,7 +57,8 @@ export class ReportController {
    *       - in: path
    *         name: reportId
    *         required: true
-   *         schema: { type: integer }
+   *         schema:
+   *           type: integer
    *     responses:
    *       200: { description: Rapport trouvé }
    *       404: { description: Rapport non trouvé }
@@ -81,7 +86,8 @@ export class ReportController {
    *       - in: path
    *         name: reportId
    *         required: true
-   *         schema: { type: integer }
+   *         schema:
+   *           type: integer
    *     responses:
    *       200: { description: Rapport supprimé }
    */
@@ -438,22 +444,37 @@ export class ReportController {
   }
 
   /**
-   * @swagger
-   * /api/reports/groups/{groupId}/projects/{projectId}/submit:
-   *   post:
-   *    parameters:
-   *      - in: path
-   *        name: groupId
-   *        required: true
-   *        schema: { type: integer }
-   *      - in: path
-   *        name: projectId
-   *        required: true
-   *        schema: { type: integer }
-   *     summary: Soumettre le rapport d’un groupe pour un projet
-   *     tags: [Reports]
-   *     security: [{ bearerAuth: [] }]
-   */
+ * @swagger
+ * /api/reports/groups/{groupId}/projects/{projectId}/submit:
+ *   post:
+ *     summary: Soumettre le rapport d'un groupe pour un projet
+ *     description: Marque le rapport d'un groupe comme soumis pour le projet correspondant.
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: groupId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 1
+ *         description: ID du groupe
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         example: 1
+ *         description: ID du projet
+ *     responses:
+ *       200:
+ *         description: Rapport soumis avec succès
+ *       404:
+ *         description: Rapport introuvable
+ *       500:
+ *         description: Erreur interne du serveur
+ */
   async submitReport(req: Request, res: Response) {
     try {
       const { groupId, projectId } = req.params;
