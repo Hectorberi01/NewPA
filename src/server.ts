@@ -8,7 +8,7 @@ import app from './app';
 dotenv.config();
 
 // Ensure PORT is a number to match the http.Server.listen overloads
-const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
+const PORT = process.env.PORT!
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const DOMAIN = process.env.DOMAIN || 'localhost';
 
@@ -26,12 +26,12 @@ async function startServer() {
     // ✅ Pour Render : un simple serveur HTTP sur process.env.PORT
     const server = http.createServer(app);
 
-    server.listen(PORT, '0.0.0.0', () => {
+    server.listen(Number(PORT), '0.0.0.0', () => {
       const baseUrl =
         NODE_ENV === 'production'
           ? `https://${DOMAIN}`
           : `http://localhost:${PORT}`;
-      console.log(`🚀 Server running on ${baseUrl}`);
+      console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📚 Swagger docs: ${baseUrl}/api-docs`);
       console.log(`🗄️  DB: ${process.env.DB_NAME}@${process.env.DB_HOST}`);
     });
