@@ -16,7 +16,7 @@ router.post("/groups/:groupId/projects/:projectId/submit", authMiddleware, contr
 // ❗ Puis seulement les génériques
 router.get("/:reportId", authMiddleware, controller.getReportById.bind(controller));
 router.delete("/:reportId", authMiddleware, requireTeacher, controller.deleteReport.bind(controller));
-router.put("/:id/sections", authMiddleware, controller.updateSection.bind(controller));
+router.put("/sections/:id/content", authMiddleware, controller.updateSection.bind(controller));
 router.post("/", authMiddleware, controller.createReport.bind(controller));
 
 export default router;
