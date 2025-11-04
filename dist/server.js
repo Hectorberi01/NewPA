@@ -13,7 +13,6 @@ const app_1 = __importDefault(require("./app"));
 // Charger les variables d'environnement
 dotenv_1.default.config();
 const PORT = process.env.PORT || 4000;
-//const PORT = Number(process.env.PORT) || 3000;
 const HTTPS_PORT = Number(process.env.HTTPS_PORT) || 3443;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const DOMAIN = process.env.DOMAIN || 'localhost';

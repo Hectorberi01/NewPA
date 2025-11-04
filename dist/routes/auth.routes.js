@@ -43,11 +43,13 @@ const validator = __importStar(require("express-validator"));
 const validation_middleware_1 = require("../middleware/validation.middleware");
 const passport_1 = __importDefault(require("passport"));
 const auth_service_1 = require("../services/auth.service");
+const dotenv = __importStar(require("dotenv"));
 const { body } = validator;
 const router = (0, express_1.Router)();
 const authController = new auth_controller_1.AuthController();
 const { loginWithGoogleOrAzure } = require('../services/auth.service');
-// ===== VALIDATIONS MANQUANTES =====
+dotenv.config();
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 const validateForgotPassword = [
     body('email').isEmail().withMessage('Invalid email format'),
     validation_middleware_1.handleValidationErrors
@@ -69,22 +71,17 @@ const validateOAuthToken = [
     body('token').notEmpty().withMessage('OAuth token is required'),
     validation_middleware_1.handleValidationErrors
 ];
-// ===== ROUTES MANQUANTES À AJOUTER =====
-// Routes de réinitialisation de mot de passe
 router.post('/forgot-password', validateForgotPassword, authController.forgotPassword.bind(authController));
 router.post('/reset-password', validateResetPassword, authController.resetPassword.bind(authController));
-// Route de rafraîchissement de token
 router.post('/refresh', validateRefreshToken, authController.refreshToken.bind(authController));
-// Route OAuth Microsoft 
 router.post('/oauth/microsoft', validateOAuthToken, authController.microsoftOAuth.bind(authController));
-// Route OAuth Google
 router.get('/google', passport_1.default.authenticate('google', {
     scope: ['profile', 'email'],
     accessType: 'offline',
     prompt: 'consent'
 }));
 router.get('/google/callback', passport_1.default.authenticate('google', {
-    failureRedirect: `http://localhost:3001/login?error=auth_failed`,
+    failureRedirect: `http://${FRONTEND_URL}/login?error=auth_failed`,
     session: false // Désactiver la session car on utilise JWT
 }), async (req, res) => {
     try {
@@ -97,11 +94,11 @@ router.get('/google/callback', passport_1.default.authenticate('google', {
         // Encoder les données pour les passer dans l'URL
         const encodedData = Buffer.from(JSON.stringify(authResponse)).toString('base64');
         // Rediriger vers le frontend avec les tokens
-        res.redirect(`http://localhost:3001/auth/callback?data=${encodedData}`);
+        res.redirect(`http://${FRONTEND_URL}/auth/callback?data=${encodedData}`);
     }
     catch (error) {
         console.error('❌ Error in callback:', error);
-        res.redirect(`http://localhost:3001/login?error=server_error`);
+        res.redirect(`http://${FRONTEND_URL}/login?error=server_error`);
     }
 });
 // Routes de vérification et informations utilisateur

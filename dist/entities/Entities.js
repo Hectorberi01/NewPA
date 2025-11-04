@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CriterionGrade = exports.Grade = exports.GradingCriterion = exports.GradingGrid = exports.Defense = exports.ReportSection = exports.Report = exports.SimilarityResult = exports.SubmissionFingerprint = exports.DeliverableSubmission = exports.DeliverableRule = exports.Deliverable = exports.Group = exports.Project = exports.Promotion = exports.User = void 0;
+exports.ReportSectionConfig = exports.ReportConfig = exports.CriterionGrade = exports.Grade = exports.GradingCriterion = exports.GradingGrid = exports.Defense = exports.ReportSection = exports.Report = exports.SimilarityResult = exports.SubmissionFingerprint = exports.DeliverableSubmission = exports.DeliverableRule = exports.Deliverable = exports.Group = exports.Project = exports.Promotion = exports.User = void 0;
 const typeorm_1 = require("typeorm");
 // ===== ENTITÉS PRINCIPALES =====
 let User = class User {
@@ -127,7 +127,7 @@ __decorate([
     __metadata("design:type", Array)
 ], Promotion.prototype, "students", void 0);
 __decorate([
-    (0, typeorm_1.OneToMany)(() => Project, project => project.promotion),
+    (0, typeorm_1.OneToMany)(() => Project, project => project.promotion, { onDelete: 'CASCADE' }),
     __metadata("design:type", Array)
 ], Promotion.prototype, "projects", void 0);
 exports.Promotion = Promotion = __decorate([
@@ -189,29 +189,28 @@ __decorate([
     __metadata("design:type", User)
 ], Project.prototype, "teacher", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => Promotion, promo => promo.projects, { nullable: true }),
-    (0, typeorm_1.JoinColumn)({ name: 'promotionId' }) // 🔒 force le nom
-    ,
+    (0, typeorm_1.ManyToOne)(() => Promotion, promo => promo.projects, { nullable: true, onDelete: 'CASCADE' }),
+    (0, typeorm_1.JoinColumn)({ name: 'promotionId' }),
     __metadata("design:type", Promotion)
 ], Project.prototype, "promotion", void 0);
 __decorate([
-    (0, typeorm_1.OneToMany)(() => Group, group => group.project),
+    (0, typeorm_1.OneToMany)(() => Group, group => group.project, { onDelete: 'CASCADE' }),
     __metadata("design:type", Array)
 ], Project.prototype, "groups", void 0);
 __decorate([
-    (0, typeorm_1.OneToMany)(() => Deliverable, deliverable => deliverable.project),
+    (0, typeorm_1.OneToMany)(() => Deliverable, deliverable => deliverable.project, { onDelete: 'CASCADE' }),
     __metadata("design:type", Array)
 ], Project.prototype, "deliverables", void 0);
 __decorate([
-    (0, typeorm_1.OneToMany)(() => Report, report => report.project),
+    (0, typeorm_1.OneToMany)(() => Report, report => report.project, { onDelete: 'CASCADE' }),
     __metadata("design:type", Array)
 ], Project.prototype, "reports", void 0);
 __decorate([
-    (0, typeorm_1.OneToMany)(() => Defense, defense => defense.project),
+    (0, typeorm_1.OneToMany)(() => Defense, defense => defense.project, { onDelete: 'CASCADE' }),
     __metadata("design:type", Array)
 ], Project.prototype, "defenses", void 0);
 __decorate([
-    (0, typeorm_1.OneToMany)(() => GradingGrid, gradingGrid => gradingGrid.project),
+    (0, typeorm_1.OneToMany)(() => GradingGrid, gradingGrid => gradingGrid.project, { onDelete: 'CASCADE' }),
     __metadata("design:type", Array)
 ], Project.prototype, "gradingGrids", void 0);
 exports.Project = Project = __decorate([
@@ -237,7 +236,7 @@ __decorate([
     __metadata("design:type", Date)
 ], Group.prototype, "updatedAt", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => Project, project => project.groups),
+    (0, typeorm_1.ManyToOne)(() => Project, project => project.groups, { onDelete: 'CASCADE' }),
     __metadata("design:type", Project)
 ], Group.prototype, "project", void 0);
 __decorate([
@@ -246,19 +245,19 @@ __decorate([
     __metadata("design:type", Array)
 ], Group.prototype, "members", void 0);
 __decorate([
-    (0, typeorm_1.OneToMany)(() => DeliverableSubmission, submission => submission.group),
+    (0, typeorm_1.OneToMany)(() => DeliverableSubmission, submission => submission.group, { onDelete: 'CASCADE' }),
     __metadata("design:type", Array)
 ], Group.prototype, "deliverableSubmissions", void 0);
 __decorate([
-    (0, typeorm_1.OneToMany)(() => Report, report => report.group),
+    (0, typeorm_1.OneToMany)(() => Report, report => report.group, { onDelete: 'CASCADE' }),
     __metadata("design:type", Array)
 ], Group.prototype, "reports", void 0);
 __decorate([
-    (0, typeorm_1.OneToMany)(() => Defense, defense => defense.group),
+    (0, typeorm_1.OneToMany)(() => Defense, defense => defense.group, { onDelete: 'CASCADE' }),
     __metadata("design:type", Array)
 ], Group.prototype, "defenses", void 0);
 __decorate([
-    (0, typeorm_1.OneToMany)(() => Grade, grade => grade.group),
+    (0, typeorm_1.OneToMany)(() => Grade, grade => grade.group, { onDelete: 'CASCADE' }),
     __metadata("design:type", Array)
 ], Group.prototype, "grades", void 0);
 exports.Group = Group = __decorate([
@@ -293,7 +292,15 @@ __decorate([
     __metadata("design:type", Boolean)
 ], Deliverable.prototype, "allowLateSubmission", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'int', default: 0 }),
+    (0, typeorm_1.Column)('decimal', {
+        precision: 5,
+        scale: 2,
+        default: 0,
+        transformer: {
+            to: (v) => v,
+            from: (v) => (v == null ? null : Number(v)),
+        },
+    }),
     __metadata("design:type", Number)
 ], Deliverable.prototype, "penaltyPerHour", void 0);
 __decorate([
@@ -305,15 +312,15 @@ __decorate([
     __metadata("design:type", Date)
 ], Deliverable.prototype, "updatedAt", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => Project, project => project.deliverables),
+    (0, typeorm_1.ManyToOne)(() => Project, project => project.deliverables, { onDelete: 'CASCADE' }),
     __metadata("design:type", Project)
 ], Deliverable.prototype, "project", void 0);
 __decorate([
-    (0, typeorm_1.OneToMany)(() => DeliverableRule, rule => rule.deliverable),
+    (0, typeorm_1.OneToMany)(() => DeliverableRule, rule => rule.deliverable, { onDelete: 'CASCADE' }),
     __metadata("design:type", Array)
 ], Deliverable.prototype, "validationRules", void 0);
 __decorate([
-    (0, typeorm_1.OneToMany)(() => DeliverableSubmission, submission => submission.deliverable),
+    (0, typeorm_1.OneToMany)(() => DeliverableSubmission, submission => submission.deliverable, { onDelete: 'CASCADE' }),
     __metadata("design:type", Array)
 ], Deliverable.prototype, "submissions", void 0);
 exports.Deliverable = Deliverable = __decorate([
@@ -339,7 +346,7 @@ __decorate([
     __metadata("design:type", String)
 ], DeliverableRule.prototype, "errorMessage", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => Deliverable, deliverable => deliverable.validationRules),
+    (0, typeorm_1.ManyToOne)(() => Deliverable, deliverable => deliverable.validationRules, { onDelete: 'CASCADE' }),
     __metadata("design:type", Deliverable)
 ], DeliverableRule.prototype, "deliverable", void 0);
 exports.DeliverableRule = DeliverableRule = __decorate([
@@ -369,7 +376,15 @@ __decorate([
     __metadata("design:type", Boolean)
 ], DeliverableSubmission.prototype, "isLate", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'int', default: 0 }),
+    (0, typeorm_1.Column)('decimal', {
+        precision: 5,
+        scale: 2,
+        default: 0,
+        transformer: {
+            to: (v) => v,
+            from: (v) => (v == null ? null : Number(v)),
+        },
+    }),
     __metadata("design:type", Number)
 ], DeliverableSubmission.prototype, "penalty", void 0);
 __decorate([
@@ -417,15 +432,15 @@ __decorate([
     __metadata("design:type", Date)
 ], DeliverableSubmission.prototype, "updatedAt", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => Deliverable, deliverable => deliverable.submissions),
+    (0, typeorm_1.ManyToOne)(() => Deliverable, deliverable => deliverable.submissions, { onDelete: 'CASCADE' }),
     __metadata("design:type", Deliverable)
 ], DeliverableSubmission.prototype, "deliverable", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => Group, group => group.deliverableSubmissions),
+    (0, typeorm_1.ManyToOne)(() => Group, group => group.deliverableSubmissions, { onDelete: 'CASCADE' }),
     __metadata("design:type", Group)
 ], DeliverableSubmission.prototype, "group", void 0);
 __decorate([
-    (0, typeorm_1.OneToMany)(() => SubmissionFingerprint, fp => fp.submission),
+    (0, typeorm_1.OneToMany)(() => SubmissionFingerprint, fp => fp.submission, { cascade: true }),
     __metadata("design:type", Array)
 ], DeliverableSubmission.prototype, "fingerprints", void 0);
 __decorate([
@@ -567,6 +582,18 @@ __decorate([
     __metadata("design:type", String)
 ], Report.prototype, "description", void 0);
 __decorate([
+    (0, typeorm_1.Column)({
+        type: 'enum',
+        enum: ['draft', 'submitted'],
+        default: 'draft'
+    }),
+    __metadata("design:type", String)
+], Report.prototype, "status", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'datetime', nullable: true }),
+    __metadata("design:type", Date)
+], Report.prototype, "submittedAt", void 0);
+__decorate([
     (0, typeorm_1.CreateDateColumn)(),
     __metadata("design:type", Date)
 ], Report.prototype, "createdAt", void 0);
@@ -575,15 +602,25 @@ __decorate([
     __metadata("design:type", Date)
 ], Report.prototype, "updatedAt", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => Project, project => project.reports),
+    (0, typeorm_1.ManyToOne)(() => Project, project => project.reports, { onDelete: 'CASCADE' }),
+    (0, typeorm_1.JoinColumn)({ name: 'projectId' }),
     __metadata("design:type", Project)
 ], Report.prototype, "project", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => Group, group => group.reports),
+    (0, typeorm_1.Column)({ name: 'projectId' }),
+    __metadata("design:type", Number)
+], Report.prototype, "projectId", void 0);
+__decorate([
+    (0, typeorm_1.ManyToOne)(() => Group, group => group.reports, { onDelete: 'CASCADE' }),
+    (0, typeorm_1.JoinColumn)({ name: 'groupId' }),
     __metadata("design:type", Group)
 ], Report.prototype, "group", void 0);
 __decorate([
-    (0, typeorm_1.OneToMany)(() => ReportSection, section => section.report),
+    (0, typeorm_1.Column)({ name: 'groupId' }),
+    __metadata("design:type", Number)
+], Report.prototype, "groupId", void 0);
+__decorate([
+    (0, typeorm_1.OneToMany)(() => ReportSection, section => section.report, { cascade: true }),
     __metadata("design:type", Array)
 ], Report.prototype, "sections", void 0);
 exports.Report = Report = __decorate([
@@ -601,13 +638,17 @@ __decorate([
     __metadata("design:type", String)
 ], ReportSection.prototype, "title", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'text' }),
+    (0, typeorm_1.Column)({ type: 'longtext', nullable: true }),
     __metadata("design:type", String)
 ], ReportSection.prototype, "content", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'int' }),
+    (0, typeorm_1.Column)({ type: 'int', default: 0 }),
     __metadata("design:type", Number)
 ], ReportSection.prototype, "orderIndex", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'int', nullable: true }),
+    __metadata("design:type", Number)
+], ReportSection.prototype, "sectionConfigId", void 0);
 __decorate([
     (0, typeorm_1.CreateDateColumn)(),
     __metadata("design:type", Date)
@@ -617,9 +658,14 @@ __decorate([
     __metadata("design:type", Date)
 ], ReportSection.prototype, "updatedAt", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => Report, report => report.sections),
+    (0, typeorm_1.ManyToOne)(() => Report, report => report.sections, { onDelete: 'CASCADE' }),
+    (0, typeorm_1.JoinColumn)({ name: 'reportId' }),
     __metadata("design:type", Report)
 ], ReportSection.prototype, "report", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'reportId' }),
+    __metadata("design:type", Number)
+], ReportSection.prototype, "reportId", void 0);
 exports.ReportSection = ReportSection = __decorate([
     (0, typeorm_1.Entity)()
 ], ReportSection);
@@ -656,17 +702,16 @@ __decorate([
     __metadata("design:type", Date)
 ], Defense.prototype, "updatedAt", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => Project, project => project.defenses),
+    (0, typeorm_1.ManyToOne)(() => Project, project => project.defenses, { onDelete: 'CASCADE' }),
     __metadata("design:type", Project)
 ], Defense.prototype, "project", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => Group, group => group.defenses),
+    (0, typeorm_1.ManyToOne)(() => Group, group => group.defenses, { onDelete: 'CASCADE' }),
     __metadata("design:type", Group)
 ], Defense.prototype, "group", void 0);
 exports.Defense = Defense = __decorate([
     (0, typeorm_1.Entity)()
 ], Defense);
-// ===== NOTATION =====
 let GradingGrid = class GradingGrid {
 };
 exports.GradingGrid = GradingGrid;
@@ -699,15 +744,15 @@ __decorate([
     __metadata("design:type", Date)
 ], GradingGrid.prototype, "updatedAt", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => Project, project => project.gradingGrids),
+    (0, typeorm_1.ManyToOne)(() => Project, project => project.gradingGrids, { onDelete: 'CASCADE' }),
     __metadata("design:type", Project)
 ], GradingGrid.prototype, "project", void 0);
 __decorate([
-    (0, typeorm_1.OneToMany)(() => GradingCriterion, criterion => criterion.gradingGrid),
+    (0, typeorm_1.OneToMany)(() => GradingCriterion, criterion => criterion.gradingGrid, { cascade: true, onDelete: 'CASCADE' }),
     __metadata("design:type", Array)
 ], GradingGrid.prototype, "criteria", void 0);
 __decorate([
-    (0, typeorm_1.OneToMany)(() => Grade, grade => grade.gradingGrid),
+    (0, typeorm_1.OneToMany)(() => Grade, grade => grade.gradingGrid, { onDelete: 'CASCADE' }),
     __metadata("design:type", Array)
 ], GradingGrid.prototype, "grades", void 0);
 exports.GradingGrid = GradingGrid = __decorate([
@@ -745,11 +790,11 @@ __decorate([
     __metadata("design:type", Boolean)
 ], GradingCriterion.prototype, "hasComments", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => GradingGrid, gradingGrid => gradingGrid.criteria),
+    (0, typeorm_1.ManyToOne)(() => GradingGrid, gradingGrid => gradingGrid.criteria, { onDelete: 'CASCADE' }),
     __metadata("design:type", GradingGrid)
 ], GradingCriterion.prototype, "gradingGrid", void 0);
 __decorate([
-    (0, typeorm_1.OneToMany)(() => CriterionGrade, criterionGrade => criterionGrade.criterion),
+    (0, typeorm_1.OneToMany)(() => CriterionGrade, criterionGrade => criterionGrade.criterion, { onDelete: 'CASCADE' }),
     __metadata("design:type", Array)
 ], GradingCriterion.prototype, "criterionGrades", void 0);
 exports.GradingCriterion = GradingCriterion = __decorate([
@@ -783,20 +828,20 @@ __decorate([
     __metadata("design:type", Date)
 ], Grade.prototype, "updatedAt", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => GradingGrid, gradingGrid => gradingGrid.grades),
+    (0, typeorm_1.ManyToOne)(() => GradingGrid, gradingGrid => gradingGrid.grades, { onDelete: 'CASCADE' }),
     __metadata("design:type", GradingGrid)
 ], Grade.prototype, "gradingGrid", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => Group, group => group.grades),
+    (0, typeorm_1.ManyToOne)(() => Group, group => group.grades, { onDelete: 'CASCADE' }),
     __metadata("design:type", Group)
 ], Grade.prototype, "group", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => User, { nullable: true }) // Pour les notes individuelles
-    ,
+    (0, typeorm_1.ManyToOne)(() => User, { nullable: true, onDelete: 'CASCADE' }),
     __metadata("design:type", User)
 ], Grade.prototype, "student", void 0);
 __decorate([
-    (0, typeorm_1.OneToMany)(() => CriterionGrade, criterionGrade => criterionGrade.grade),
+    (0, typeorm_1.OneToMany)(() => CriterionGrade, criterionGrade => criterionGrade.grade, { cascade: true, onDelete: 'CASCADE' }) // AJOUT de onDelete: 'CASCADE'
+    ,
     __metadata("design:type", Array)
 ], Grade.prototype, "criterionGrades", void 0);
 exports.Grade = Grade = __decorate([
@@ -818,13 +863,108 @@ __decorate([
     __metadata("design:type", String)
 ], CriterionGrade.prototype, "comments", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => Grade, grade => grade.criterionGrades),
+    (0, typeorm_1.ManyToOne)(() => Grade, grade => grade.criterionGrades, { onDelete: 'CASCADE' }),
     __metadata("design:type", Grade)
 ], CriterionGrade.prototype, "grade", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => GradingCriterion, criterion => criterion.criterionGrades),
+    (0, typeorm_1.ManyToOne)(() => GradingCriterion, criterion => criterion.criterionGrades, { onDelete: 'CASCADE' }),
     __metadata("design:type", GradingCriterion)
 ], CriterionGrade.prototype, "criterion", void 0);
 exports.CriterionGrade = CriterionGrade = __decorate([
     (0, typeorm_1.Entity)()
 ], CriterionGrade);
+// ===== CONFIGURATION RAPPORTS =====
+let ReportConfig = class ReportConfig {
+};
+exports.ReportConfig = ReportConfig;
+__decorate([
+    (0, typeorm_1.PrimaryGeneratedColumn)(),
+    __metadata("design:type", Number)
+], ReportConfig.prototype, "id", void 0);
+__decorate([
+    (0, typeorm_1.ManyToOne)(() => Project, { onDelete: 'CASCADE' }),
+    (0, typeorm_1.JoinColumn)({ name: 'projectId' }),
+    __metadata("design:type", Project)
+], ReportConfig.prototype, "project", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'projectId' }),
+    __metadata("design:type", Number)
+], ReportConfig.prototype, "projectId", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ default: false }),
+    __metadata("design:type", Boolean)
+], ReportConfig.prototype, "isEnabled", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'text', nullable: true }),
+    __metadata("design:type", String)
+], ReportConfig.prototype, "instructions", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'enum', enum: ['markdown', 'html'], default: 'markdown' }),
+    __metadata("design:type", String)
+], ReportConfig.prototype, "format", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'datetime', nullable: true }),
+    __metadata("design:type", Date)
+], ReportConfig.prototype, "deadline", void 0);
+__decorate([
+    (0, typeorm_1.OneToMany)(() => ReportSectionConfig, section => section.config, { cascade: true }),
+    __metadata("design:type", Array)
+], ReportConfig.prototype, "sections", void 0);
+__decorate([
+    (0, typeorm_1.CreateDateColumn)(),
+    __metadata("design:type", Date)
+], ReportConfig.prototype, "createdAt", void 0);
+__decorate([
+    (0, typeorm_1.UpdateDateColumn)(),
+    __metadata("design:type", Date)
+], ReportConfig.prototype, "updatedAt", void 0);
+exports.ReportConfig = ReportConfig = __decorate([
+    (0, typeorm_1.Entity)()
+], ReportConfig);
+let ReportSectionConfig = class ReportSectionConfig {
+};
+exports.ReportSectionConfig = ReportSectionConfig;
+__decorate([
+    (0, typeorm_1.PrimaryGeneratedColumn)(),
+    __metadata("design:type", Number)
+], ReportSectionConfig.prototype, "id", void 0);
+__decorate([
+    (0, typeorm_1.ManyToOne)(() => ReportConfig, config => config.sections, { onDelete: 'CASCADE' }),
+    (0, typeorm_1.JoinColumn)({ name: 'configId' }),
+    __metadata("design:type", ReportConfig)
+], ReportSectionConfig.prototype, "config", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'configId' }),
+    __metadata("design:type", Number)
+], ReportSectionConfig.prototype, "configId", void 0);
+__decorate([
+    (0, typeorm_1.Column)(),
+    __metadata("design:type", String)
+], ReportSectionConfig.prototype, "title", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'text', nullable: true }),
+    __metadata("design:type", String)
+], ReportSectionConfig.prototype, "description", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ default: true }),
+    __metadata("design:type", Boolean)
+], ReportSectionConfig.prototype, "required", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'int', nullable: true }),
+    __metadata("design:type", Number)
+], ReportSectionConfig.prototype, "wordLimit", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'int', default: 0 }),
+    __metadata("design:type", Number)
+], ReportSectionConfig.prototype, "order", void 0);
+__decorate([
+    (0, typeorm_1.CreateDateColumn)(),
+    __metadata("design:type", Date)
+], ReportSectionConfig.prototype, "createdAt", void 0);
+__decorate([
+    (0, typeorm_1.UpdateDateColumn)(),
+    __metadata("design:type", Date)
+], ReportSectionConfig.prototype, "updatedAt", void 0);
+exports.ReportSectionConfig = ReportSectionConfig = __decorate([
+    (0, typeorm_1.Entity)()
+], ReportSectionConfig);

@@ -38,9 +38,7 @@ class ProjectService {
         const wasVisible = project.status === 'visible';
         Object.assign(project, projectData);
         const updatedProject = await this.projectRepository.save(project);
-        // Si le projet devient visible, notifier les étudiants
         if (!wasVisible && updatedProject.status === 'visible') {
-            // await this.notifyStudentsNewProject(updatedProject);
             for (const student of project.promotion.students) {
                 this.emailService.sendProjectVisibleEmail(student.email, student.firstName, updatedProject.name);
             }
@@ -81,7 +79,6 @@ class ProjectService {
                 .leftJoinAndSelect('deliverables.validationRules', 'deliverableValidationRules')
                 .leftJoinAndSelect('deliverables.submissions', 'deliverableSubmissions')
                 .leftJoinAndSelect('deliverableSubmissions.group', 'submissionGroup')
-                // ✅ Tous les groupes
                 .leftJoinAndSelect('project.groups', 'groups')
                 .leftJoinAndSelect('groups.members', 'members')
                 .leftJoinAndSelect('groups.deliverableSubmissions', 'groupDeliverableSubmissions')
@@ -97,7 +94,6 @@ class ProjectService {
                 .leftJoinAndSelect('project.gradingGrids', 'gradingGrids')
                 .where('project.status = :status', { status: 'visible' })
                 .andWhere('project.id = :projectId', { projectId })
-                // ✅ Vérifier l'accès via une sous-requête EXISTS
                 .andWhere(qb => {
                 const subQuery = qb
                     .subQuery()
@@ -242,7 +238,6 @@ class ProjectService {
         if (!project)
             throw new Error('Project not found');
         console.log(`Removing existing groups for project "${project}"`);
-        // Supprimer les groupes existants
         if (project.groups.length > 0) {
             await this.groupRepository.remove(project.groups);
         }
@@ -251,7 +246,6 @@ class ProjectService {
         const maxGroupSize = project.maxGroupSize || 4;
         const minGroupSize = project.minGroupSize || 2;
         const groups = [];
-        // Mélanger les étudiants
         const shuffledStudents = [...students].sort(() => Math.random() - 0.5);
         let currentIndex = 0;
         let groupNumber = 1;
@@ -259,9 +253,7 @@ class ProjectService {
         while (currentIndex < shuffledStudents.length) {
             const remainingStudents = shuffledStudents.length - currentIndex;
             const remainingGroups = Math.ceil(remainingStudents / maxGroupSize);
-            // Calculer la taille optimale pour ce groupe
             let groupSize = Math.min(maxGroupSize, remainingStudents);
-            // Éviter d'avoir un dernier groupe trop petit
             if (remainingGroups === 2 && remainingStudents < minGroupSize + maxGroupSize) {
                 groupSize = Math.ceil(remainingStudents / 2);
             }
@@ -277,7 +269,6 @@ class ProjectService {
             groupNumber++;
         }
         return groups;
-        //return this.generateRandomGroups(projectId);
     }
     async generateManualGroups(projectId, groupsData) {
         const project = await this.projectRepository.findOne({
@@ -289,14 +280,12 @@ class ProjectService {
         if (project.groupFormationRule !== 'manual') {
             throw new Error('Manual group generation not allowed for this project');
         }
-        // Supprimer les groupes existants
         if (project.groups.length > 0) {
             await this.groupRepository.remove(project.groups);
         }
         const groups = [];
         for (const groupData of groupsData) {
             const members = await this.userRepository.findByIds(groupData.memberIds);
-            // Vérifications
             if (project.minGroupSize && members.length < project.minGroupSize) {
                 throw new Error(`Group "${groupData.name}" must have at least ${project.minGroupSize} members`);
             }
@@ -319,18 +308,15 @@ class ProjectService {
         });
         if (!project)
             throw new Error('Project not found');
-        // Trouver les étudiants non assignés
         const allStudents = project.promotion.students;
         const assignedStudentIds = new Set(project.groups.flatMap(group => group.members.map(member => member.id)));
         const unassignedStudents = allStudents.filter(student => !assignedStudentIds.has(student.id) && student.isActive);
         if (unassignedStudents.length === 0)
             return;
-        // Distribuer les étudiants non assignés dans les groupes existants
         const existingGroups = [...project.groups];
         let currentGroupIndex = 0;
         for (const student of unassignedStudents) {
             if (existingGroups.length === 0) {
-                // Créer un nouveau groupe si aucun groupe n'existe
                 const newGroup = this.groupRepository.create({
                     name: `Groupe ${project.groups.length + 1}`,
                     project,
@@ -339,7 +325,6 @@ class ProjectService {
                 await this.groupRepository.save(newGroup);
             }
             else {
-                // Ajouter à un groupe existant
                 const targetGroup = existingGroups[currentGroupIndex];
                 if (!project.maxGroupSize || targetGroup.members.length < project.maxGroupSize) {
                     targetGroup.members.push(student);
@@ -350,10 +335,39 @@ class ProjectService {
         }
     }
     async deleteProject(id) {
-        const project = await this.projectRepository.findOne({ where: { id } });
-        if (!project)
-            throw new Error('Project not found');
-        await this.projectRepository.remove(project);
+        return await this.projectRepository.manager.transaction(async (transactionalEntityManager) => {
+            const project = await transactionalEntityManager.findOne(Entities_1.Project, {
+                where: { id },
+                relations: ['groups', 'gradingGrids', 'deliverables', 'reports', 'defenses']
+            });
+            if (!project)
+                throw new Error('Project not found');
+            const groups = project.groups;
+            const groupIds = groups.map(g => g.id);
+            const grades = await transactionalEntityManager.find(Entities_1.Grade, { where: { group: { id: (0, typeorm_1.In)(groupIds) } } });
+            const gradeIds = grades.map(g => g.id);
+            await transactionalEntityManager.delete(Entities_1.CriterionGrade, { grade: { id: (0, typeorm_1.In)(gradeIds) } });
+            await transactionalEntityManager.delete(Entities_1.Grade, { id: (0, typeorm_1.In)(gradeIds) });
+            const grids = project.gradingGrids;
+            const gridIds = grids.map(g => g.id);
+            await transactionalEntityManager.delete(Entities_1.GradingCriterion, { gradingGrid: { id: (0, typeorm_1.In)(gridIds) } });
+            await transactionalEntityManager.delete(Entities_1.GradingGrid, { id: (0, typeorm_1.In)(gridIds) });
+            const deliverables = project.deliverables;
+            const deliverableIds = deliverables.map(d => d.id);
+            await transactionalEntityManager.delete(Entities_1.DeliverableRule, { deliverable: { id: (0, typeorm_1.In)(deliverableIds) } });
+            await transactionalEntityManager.delete(Entities_1.Deliverable, { id: (0, typeorm_1.In)(deliverableIds) });
+            await transactionalEntityManager.delete(Entities_1.DeliverableSubmission, { group: { id: (0, typeorm_1.In)(groupIds) } });
+            const reports = await transactionalEntityManager.find(Entities_1.Report, { where: { project: { id } } });
+            const reportIds = reports.map(r => r.id);
+            await transactionalEntityManager.delete(Entities_1.ReportSection, { report: { id: (0, typeorm_1.In)(reportIds) } });
+            await transactionalEntityManager.delete(Entities_1.Report, { id: (0, typeorm_1.In)(reportIds) });
+            await transactionalEntityManager.delete(Entities_1.Defense, { project: { id } });
+            if (groupIds.length > 0) {
+                await transactionalEntityManager.query(`DELETE FROM group_members_user WHERE groupId IN (${groupIds.join(',')})`);
+            }
+            await transactionalEntityManager.delete(Entities_1.Group, { id: (0, typeorm_1.In)(groupIds) });
+            await transactionalEntityManager.delete(Entities_1.Project, { id });
+        });
     }
     async notifyStudentsNewProject(project) {
         if (!project.promotion?.students)
@@ -366,7 +380,6 @@ class ProjectService {
         await qr.connect();
         await qr.startTransaction();
         try {
-            // 1) Charger projet + groupes + membres + promo/étudiants (contrôle appartenance)
             const project = await qr.manager.getRepository(Entities_1.Project).findOne({
                 where: { id: projectId },
                 relations: [
@@ -383,9 +396,7 @@ class ProjectService {
             }
             const groupsById = new Map();
             project.groups.forEach((g) => groupsById.set(g.id, g));
-            // 2) Validation de base payload
             const payloadGroupIds = new Set(payload.groups.map((g) => g.id));
-            // (optionnel) s'assurer que tous les groupes du payload appartiennent au projet
             const invalidGroupIds = [...payloadGroupIds].filter((id) => !groupsById.has(id));
             if (invalidGroupIds.length > 0) {
                 const err = new Error("Certains groupes ne font pas partie du projet");
@@ -393,7 +404,6 @@ class ProjectService {
                 err.details = { invalidGroupIds };
                 throw err;
             }
-            // 3) Vérifier l'appartenance des étudiants à la promotion du projet
             const allowedStudentIds = new Set((project.promotion?.students ?? []).map((s) => s.id));
             const requestedIds = new Set([
                 ...payload.unassignedIds,
@@ -406,7 +416,6 @@ class ProjectService {
                 err.details = { studentIdsNotInPromotion: outside };
                 throw err;
             }
-            // 4) Unicité : un étudiant ne peut être dans deux groupes à la fois
             const allAssigned = payload.groups.flatMap((g) => g.memberIds);
             const dupCheck = new Map();
             const duplicates = [];
@@ -420,7 +429,6 @@ class ProjectService {
                 err.details = { duplicates };
                 throw err;
             }
-            // 5) Capacité : chaque groupe <= capacity
             const overCapacity = payload.groups
                 .map((g) => ({ g, entity: groupsById.get(g.id) }))
                 .filter(({ g, entity }) => g.memberIds.length > project.maxGroupSize)
@@ -431,16 +439,13 @@ class ProjectService {
                 err.details = { overCapacity };
                 throw err;
             }
-            // 6) Construire l'état cible + calculer add/remove par groupe
             const userRepo = qr.manager.getRepository(Entities_1.User);
-            // Charger tous les utilisateurs impliqués (optimisation requête)
             const allUserIds = [...requestedIds];
             const users = allUserIds.length
                 ? await userRepo.find({ where: { id: (0, typeorm_1.In)(allUserIds) } })
                 : [];
             const usersById = new Map(users.map((u) => [u.id, u]));
             let affectedLinks = 0;
-            // Pour chaque groupe du projet, on aligne l'état avec le payload
             for (const g of project.groups) {
                 const desired = payload.groups.find((x) => x.id === g.id)?.memberIds ?? [];
                 const current = (g.members ?? []).map((m) => m.id);
@@ -448,9 +453,7 @@ class ProjectService {
                 const toRemove = current.filter((id) => !desired.includes(id));
                 if (toAdd.length === 0 && toRemove.length === 0)
                     continue;
-                // Vérif finale (au cas où) : pas d'IDs inconnus
                 const validAdd = toAdd.filter((id) => usersById.has(id));
-                // Mettre à jour la relation ManyToMany (clear+add partiel)
                 if (toRemove.length) {
                     await qr.manager
                         .createQueryBuilder()

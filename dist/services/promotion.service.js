@@ -77,24 +77,35 @@ class PromotionService {
         const newStudents = [];
         console.log('Liste des étudiants à ajouter:', studentsListe);
         for (const data of studentsListe) {
-            let student = await this.userRepository.findOne({ where: { email: data.email } });
+            // CORRECTION: Rechercher avec les bonnes relations si nécessaire
+            let student = await this.userRepository.findOne({
+                where: { email: data.email },
+                relations: ['studentPromotions'] // Ajouter si nécessaire
+            });
             if (!student) {
                 const tempPassword = password_service_1.PasswordService.generateTemporaryPassword();
+                console.log('Temporary password generated:', tempPassword);
                 const hashedPassword = await password_service_1.PasswordService.hashPassword(tempPassword);
+                // CORRECTION: S'assurer que les champs correspondent
                 student = this.userRepository.create({
                     email: data.email,
-                    firstName: data.firstName,
-                    lastName: data.lastName,
+                    firstName: data.firstName || data.prenom, // Gérer les deux formats
+                    lastName: data.lastName || data.nom, // Gérer les deux formats
                     role: 'student',
                     password: hashedPassword,
                     isActive: true
                 });
                 student = await this.userRepository.save(student);
+                // CORRECTION: Utiliser le service d'email correct
+                this.sendWelcomeEmailAsync(student, tempPassword);
             }
-            if (!promotion.students.some(s => s.id === student.id)) {
+            // CORRECTION: Vérifier si l'étudiant est déjà dans la promotion
+            const isAlreadyInPromotion = promotion.students.some(s => s.id === student.id);
+            if (!isAlreadyInPromotion) {
                 newStudents.push(student);
             }
         }
+        // CORRECTION: Ajouter les nouveaux étudiants
         promotion.students = [...promotion.students, ...newStudents];
         return await this.promotionRepository.save(promotion);
     }
@@ -105,7 +116,6 @@ class PromotionService {
         let newStudentsCount = 0;
         let existingStudentsCount = 0;
         try {
-            // 1. Vérifier que la promotion existe
             const promotion = await this.promotionRepository.findOne({
                 where: { id: promotionId },
                 relations: ['students']
@@ -114,18 +124,14 @@ class PromotionService {
             if (!promotion) {
                 throw new Error('Promotion not found');
             }
-            // 2. Parser le fichier selon son type
             const studentsData = await this.parseFile(file);
             console.log(`Données extraites du fichier (${studentsData.length} entrées):`, studentsData);
-            // 3. Valider les données
             const validStudents = this.validateStudentsData(studentsData, errors);
             if (validStudents.length === 0) {
                 throw new Error('Aucun étudiant valide trouvé dans le fichier');
             }
-            // 4. Traitement par batch pour optimiser les performances
             const batchSize = 50;
             const newStudents = [];
-            // Récupérer tous les emails existants en une seule requête
             const existingEmails = await this.userRepository
                 .createQueryBuilder('user')
                 .select('user.email')
@@ -134,14 +140,12 @@ class PromotionService {
             })
                 .getMany()
                 .then(users => new Set(users.map(u => u.email)));
-            // Traiter par lots
             for (let i = 0; i < validStudents.length; i += batchSize) {
                 const batch = validStudents.slice(i, i + batchSize);
                 for (const studentData of batch) {
                     try {
                         totalProcessed++;
                         if (existingEmails.has(studentData.email)) {
-                            // Étudiant existant - vérifier s'il est déjà dans la promotion
                             const existingStudent = await this.userRepository.findOne({
                                 where: { email: studentData.email }
                             });
@@ -151,7 +155,6 @@ class PromotionService {
                             existingStudentsCount++;
                         }
                         else {
-                            // Nouvel étudiant - créer le compte
                             const tempPassword = password_service_1.PasswordService.generateTemporaryPassword();
                             const hashedPassword = await password_service_1.PasswordService.hashPassword(tempPassword);
                             const newStudent = this.userRepository.create({
@@ -167,7 +170,6 @@ class PromotionService {
                             const savedStudent = await this.userRepository.save(newStudent);
                             newStudents.push(savedStudent);
                             newStudentsCount++;
-                            // Envoyer email de bienvenue de manière asynchrone
                             emailService.sendAccountCreationEmail(savedStudent.email, savedStudent.firstName, tempPassword)
                                 .catch(emailError => {
                                 console.error(`Erreur envoi email à ${savedStudent.email}:`, emailError);
@@ -180,13 +182,12 @@ class PromotionService {
                     }
                 }
             }
-            // 5. Ajouter les nouveaux étudiants à la promotion
             if (newStudents.length > 0) {
                 promotion.students = [...promotion.students, ...newStudents];
                 await this.promotionRepository.save(promotion);
             }
-            // 6. Nettoyer le fichier temporaire
-            this.cleanupFile(file.path);
+            if (file.path)
+                this.cleanupFile(file.path);
             return {
                 promotion,
                 summary: {
@@ -212,8 +213,29 @@ class PromotionService {
             case 'xlsx':
             case 'xls':
                 return this.parseExcel(file.path);
+            case 'json':
+                return this.parseJSON(file.path);
             default:
                 throw new Error(`Format de fichier non supporté: ${extension}`);
+        }
+    }
+    parseJSON(filePath) {
+        try {
+            const content = (0, fs_1.readFileSync)(filePath, 'utf-8');
+            const data = JSON.parse(content);
+            const studentsArray = Array.isArray(data) ? data :
+                Array.isArray(data.students) ? data.students :
+                    [data];
+            return studentsArray
+                .map(student => ({
+                email: (student.email || student.mail || '').trim().toLowerCase(),
+                firstName: (student.prenom || student.firstName || student.first_name || '').trim(),
+                lastName: (student.nom || student.lastName || student.last_name || '').trim()
+            }))
+                .filter(s => s.email);
+        }
+        catch (error) {
+            throw new Error(`Erreur lors de la lecture du fichier JSON: ${error.message}`);
         }
     }
     async parseCSV(filePath) {
@@ -224,13 +246,12 @@ class PromotionService {
                 .pipe(iconv_lite_1.default.decodeStream("win1252"))
                 .pipe((0, strip_bom_stream_1.default)())
                 .pipe((0, csv_parser_1.default)({
-                separator: ";", // <- clé: ton CSV est "nom;prenom;email"
+                separator: ";",
                 mapHeaders: ({ header }) => header.replace(/^\uFEFF/, "").toLowerCase().trim(),
                 skipLines: 0,
                 strict: false,
             }))
                 .on("data", (row) => {
-                // console.log("Row:", row)
                 const email = pick(row, "email", "e-mail", "mail");
                 const firstName = pick(row, "prenom", "firstname", "first_name", "first name");
                 const lastName = pick(row, "nom", "lastname", "last_name", "last name");
@@ -250,7 +271,6 @@ class PromotionService {
             header: 1,
             blankrows: false
         });
-        // Récupérer les headers (première ligne)
         const headers = jsonData[0]?.map(h => h.toLowerCase().trim()) || [];
         const emailIndex = this.findColumnIndex(headers, ['email', 'e-mail', 'mail']);
         const firstNameIndex = this.findColumnIndex(headers, ['prenom', 'prénom', 'firstname', 'first_name']);
@@ -258,9 +278,8 @@ class PromotionService {
         if (emailIndex === -1) {
             throw new Error('Colonne email non trouvée dans le fichier Excel');
         }
-        // Parser les données (ignorer la ligne d'en-tête)
         return jsonData.slice(1)
-            .filter(row => row[emailIndex]?.trim()) // Ignorer les lignes sans email
+            .filter(row => row[emailIndex]?.trim())
             .map(row => ({
             email: row[emailIndex]?.trim(),
             firstName: firstNameIndex !== -1 ? row[firstNameIndex]?.trim() : undefined,
@@ -275,18 +294,15 @@ class PromotionService {
         const validStudents = [];
         const seenEmails = new Set();
         studentsData.forEach((student, index) => {
-            const lineNumber = index + 2; // +2 car index commence à 0 et on ignore la ligne d'en-tête
-            // Vérifier que l'email existe
+            const lineNumber = index + 2;
             if (!student.email) {
                 errors.push(`Ligne ${lineNumber}: Email manquant`);
                 return;
             }
-            // Valider le format de l'email
             if (!emailRegex.test(student.email)) {
                 errors.push(`Ligne ${lineNumber}: Format d'email invalide (${student.email})`);
                 return;
             }
-            // Vérifier les doublons dans le fichier
             if (seenEmails.has(student.email.toLowerCase())) {
                 errors.push(`Ligne ${lineNumber}: Email en double (${student.email})`);
                 return;
@@ -294,7 +310,7 @@ class PromotionService {
             seenEmails.add(student.email.toLowerCase());
             validStudents.push({
                 ...student,
-                email: student.email.toLowerCase() // Normaliser l'email
+                email: student.email.toLowerCase()
             });
         });
         return validStudents;
@@ -313,13 +329,15 @@ class PromotionService {
         }
     }
     async deletePromotion(promotionId) {
-        const promotion = await this.promotionRepository.findOne({ where: { id: promotionId } });
-        if (!promotion)
+        const promotion = await this.promotionRepository.findOne({
+            where: { id: promotionId }
+        });
+        if (!promotion) {
             throw new Error('Promotion not found');
+        }
         await this.promotionRepository.remove(promotion);
     }
     async removeStudentFromPromotion(promotionId, studentId, teacherId) {
-        // Vérifier que la promotion existe et appartient au professeur
         const promotion = await this.promotionRepository.findOne({
             where: {
                 id: promotionId,
@@ -339,6 +357,16 @@ class PromotionService {
         promotion.students = promotion.students.filter(student => student.id !== studentId);
         await this.promotionRepository.save(promotion);
         return { success: true, studentId };
+    }
+    async sendWelcomeEmailAsync(student, tempPassword) {
+        try {
+            const emailService = new email_service_1.EmailService();
+            await emailService.sendAccountCreationEmail(student.email, student.firstName, tempPassword);
+            console.log(`✅ Email envoyé à ${student.email}`);
+        }
+        catch (emailError) {
+            console.error(`❌ Erreur email pour ${student.email}:`, emailError);
+        }
     }
 }
 exports.PromotionService = PromotionService;

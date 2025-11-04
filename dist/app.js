@@ -37,6 +37,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
+const dotenv = __importStar(require("dotenv"));
 const cors_1 = __importDefault(require("cors"));
 const helmet_1 = __importDefault(require("helmet"));
 const routes_1 = __importDefault(require("./routes"));
@@ -46,7 +47,6 @@ const path_1 = __importDefault(require("path"));
 const passport_1 = __importDefault(require("passport"));
 const express_session_1 = __importDefault(require("express-session"));
 require("./config/passport");
-const dotenv = __importStar(require("dotenv"));
 dotenv.config();
 const PORT = Number(process.env.PORT) || 3000;
 const app = (0, express_1.default)();

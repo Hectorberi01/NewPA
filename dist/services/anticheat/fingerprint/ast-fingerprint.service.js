@@ -41,7 +41,6 @@ class AstFingerprintService {
                 }];
         }
         catch {
-            // échec parsing → empreinte vide (ne bloque pas le pipeline)
             return [{
                     submissionId: file.submissionId,
                     filePath: file.filePath,
@@ -53,7 +52,6 @@ class AstFingerprintService {
                 }];
         }
     }
-    // --- Helpers AST ---
     normalizeAst(node) {
         if (!node || typeof node !== 'object')
             return node;

@@ -50,10 +50,10 @@ const validateCreatePromotion = [
 ];
 router.post('/', auth_middleware_1.authMiddleware, auth_middleware_1.requireTeacher, validateCreatePromotion, promotionController.createPromotion.bind(promotionController));
 router.get('/my', auth_middleware_1.authMiddleware, auth_middleware_1.requireTeacher, promotionController.getMyPromotions.bind(promotionController));
-router.post('/:id/students', auth_middleware_1.authMiddleware, auth_middleware_1.requireTeacher, promotionController.addStudents.bind(promotionController));
+router.post('/:promotionId/students', auth_middleware_1.authMiddleware, auth_middleware_1.requireTeacher, promotionController.addStudents.bind(promotionController));
 router.put('/:id', auth_middleware_1.authMiddleware, auth_middleware_1.requireTeacher, validateCreatePromotion, promotionController.updatePromotion.bind(promotionController));
 router.delete('/:id', auth_middleware_1.authMiddleware, auth_middleware_1.requireTeacher, promotionController.deletePromotion.bind(promotionController));
-router.post('/:id/students/import', auth_middleware_1.authMiddleware, auth_middleware_1.requireTeacher, upload_middleware_1.uploadMiddleware.single('file'), // Limite à 10MB par défaut
+router.post('/:promotionId/students/import', auth_middleware_1.authMiddleware, auth_middleware_1.requireTeacher, upload_middleware_1.uploadMiddleware.single('file'), // Limite à 10MB par défaut
 promotionController.addStudentsFromFile.bind(promotionController));
 router.delete('/:id/students/:studentId', auth_middleware_1.authMiddleware, auth_middleware_1.requireTeacher, promotionController.deleteStudent.bind(promotionController));
 exports.default = router;

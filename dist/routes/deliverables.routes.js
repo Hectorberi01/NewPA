@@ -20,4 +20,7 @@ router.get('/submissions/:id/download', auth_middleware_1.authMiddleware, auth_m
 router.post('/:id/submit', auth_middleware_1.authMiddleware, upload_middleware_1.uploadMiddleware.single('file'), deliverableController.submitDeliverable.bind(deliverableController));
 // Routes combinées dans les projets
 router.get('/projects/:projectId/deliverables', auth_middleware_1.authMiddleware, deliverableController.getProjectDeliverables.bind(deliverableController));
+// Ajouter dans le router, après les autres routes
+router.post('/:id/validate', auth_middleware_1.authMiddleware, upload_middleware_1.uploadMiddleware.single('file'), deliverableController.validateDeliverable.bind(deliverableController));
+router.get('/:deliverableId/submissions/:groupId', auth_middleware_1.authMiddleware, auth_middleware_1.requireTeacher, deliverableController.getGroupSubmission.bind(deliverableController));
 exports.default = router;

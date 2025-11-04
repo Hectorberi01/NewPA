@@ -66,35 +66,52 @@ class AuthService {
      * Connexion par email/mot de passe
      */
     async login(email, password) {
-        // Récupérer l'utilisateur avec son mot de passe
-        const user = await this.userRepository
-            .createQueryBuilder('user')
-            .addSelect('user.password')
-            .where('user.email = :email', { email })
-            .getOne();
-        if (!user || !user.isActive) {
-            throw new Error('Invalid credentials');
+        console.log('Tentative de login pour:', email);
+        try {
+            const user1 = await this.userRepository.findOne({
+                where: { email: email }
+            });
+            console.log('Utilisateur avec findOne:', user1);
+            // Récupérer l'utilisateur avec son mot de passe
+            const user = await this.userRepository
+                .createQueryBuilder('user')
+                .addSelect('user.password')
+                .where('user.email = :email', { email })
+                .getOne();
+            console.log('Utilisateur trouvé:', user ? 'Oui' : 'Non');
+            console.log('User active status:', user?.isActive);
+            if (!user || !user.isActive) {
+                console.log('Utilisateur inactif');
+                throw new Error('Invalid credentials');
+            }
+            // Vérifier le mot de passe
+            if (!user.password) {
+                console.log('Utilisateur non trouvé');
+                throw new Error('Password not set for this user');
+            }
+            const isPasswordValid = await password_service_1.PasswordService.comparePasswords(password, user.password);
+            console.log('Mot de passe valide:', isPasswordValid);
+            if (!isPasswordValid) {
+                console.log('Mot de passe invalide');
+                throw new Error('Invalid credentials');
+            }
+            // Mettre à jour la dernière connexion
+            //await this.updateLastLogin(user.id);
+            // Générer les tokens
+            const token = this.generateAccessToken(user);
+            const refreshToken = this.generateRefreshToken(user);
+            // Ne pas renvoyer le mot de passe
+            const { password: _, ...userWithoutPassword } = user;
+            return {
+                user: userWithoutPassword,
+                token,
+                refreshToken
+            };
         }
-        // Vérifier le mot de passe
-        if (!user.password) {
-            throw new Error('Password not set for this user');
+        catch (error) {
+            console.error('Erreur dans login:', error);
+            throw error;
         }
-        const isPasswordValid = await password_service_1.PasswordService.comparePasswords(password, user.password);
-        if (!isPasswordValid) {
-            throw new Error('Invalid credentials');
-        }
-        // Mettre à jour la dernière connexion
-        //await this.updateLastLogin(user.id);
-        // Générer les tokens
-        const token = this.generateAccessToken(user);
-        const refreshToken = this.generateRefreshToken(user);
-        // Ne pas renvoyer le mot de passe
-        const { password: _, ...userWithoutPassword } = user;
-        return {
-            user: userWithoutPassword,
-            token,
-            refreshToken
-        };
     }
     /**
      * Inscription d'un enseignant
@@ -354,7 +371,6 @@ class AuthService {
         // }
         return user;
     }
-    // ===== MÉTHODES PRIVÉES =====
     /**
      * Générer un token d'accès
      */
