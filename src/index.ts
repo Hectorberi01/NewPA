@@ -25,9 +25,9 @@ const main = async () => {
 
         setupSwagger(app);
         // 3. Routes
-        app.use('/users', userRoutes);
-        app.use('/promotions', promotionRoutes);
-        app.use('/projects', projectRoutes);
+        //app.use('/users', userRoutes);
+        //app.use('/promotions', promotionRoutes);
+        //app.use('/projects', projectRoutes);
 
         
 
