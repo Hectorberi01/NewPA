@@ -5,6 +5,7 @@ import userRoutes from "./routes/users.routes";
 import { setupSwagger } from "./config/swagger";
 import promotionRoutes from "./routes/promotions.routes";
 import projectRoutes from "./routes/projects.routes";
+import { r } from "@faker-js/faker/dist/airline-CLphikKp";
 
 
 
@@ -24,13 +25,7 @@ const main = async () => {
         app.use(express.urlencoded({ extended: true }));
 
         setupSwagger(app);
-        // 3. Routes
-        app.use('/users', userRoutes);
-        app.use('/promotions', promotionRoutes);
-        app.use('/projects', projectRoutes);
-
-        
-
+ 
         // 5. Lancement serveur
         app.listen(PORT, () => {
             console.log(`Server is running on port ${PORT}`)

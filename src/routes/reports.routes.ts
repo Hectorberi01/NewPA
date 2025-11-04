@@ -1,16 +1,120 @@
 import { Router } from 'express';
-import { ReportController } from '../controllers/report.controller';
 import { authMiddleware, requireTeacher } from '../middleware/auth.middleware';
 import { ReportService } from '../services/report.service';
-import PDFDocument from 'pdfkit';
 
 const router = Router();
-const reportController = new ReportController();
 const reportService = new ReportService();
 
-router.post('/', authMiddleware, reportController.createReport.bind(reportController));
-router.put('/:id/sections', authMiddleware, reportController.updateSection.bind(reportController));
+// ============================================================================
+// ROUTES SPÉCIFIQUES (doivent être définies AVANT les routes génériques)
+// ============================================================================
 
+/**
+ * @swagger
+ * /api/reports:
+ *   post:
+ *     summary: Create a new report
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [projectId, groupId, title]
+ *             properties:
+ *               projectId:
+ *                 type: integer
+ *               groupId:
+ *                 type: integer
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Report created successfully
+ */
+router.post('/', authMiddleware, async (req, res) => {
+  try {
+    const { projectId, groupId, title, description } = req.body;
+    console.log(projectId, groupId, title);
+    const report = await reportService.createReport(projectId, groupId, title, description);
+    res.status(201).json(report);
+  } catch (error: any) {
+    console.error('Erreur createReport:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/reports/{id}/sections:
+ *   put:
+ *     summary: Update a report section
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [sectionTitle, content, orderIndex]
+ *             properties:
+ *               sectionTitle:
+ *                 type: string
+ *               content:
+ *                 type: string
+ *               orderIndex:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Report section updated successfully
+ */
+router.put('/:id/sections', authMiddleware, async (req, res) => {
+  try {
+    const reportId = parseInt(req.params.id);
+    const { sectionTitle, content, orderIndex } = req.body;
+    const section = await reportService.updateReportSection(reportId, sectionTitle, content, orderIndex);
+    res.json(section);
+  } catch (error: any) {
+    console.error('Erreur updateSection:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ============================================================================
+// ROUTES PROJECTS
+// ============================================================================
+
+/**
+ * @swagger
+ * /api/reports/projects/{projectId}:
+ *   get:
+ *     summary: Get all reports for a project
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Reports retrieved successfully
+ */
 router.get('/projects/:projectId', 
   authMiddleware, 
   requireTeacher, 
@@ -25,6 +129,7 @@ router.get('/projects/:projectId',
     }
   }
 );
+
 router.post('/projects/:projectId/report-config', 
   authMiddleware, 
   requireTeacher, 
@@ -45,8 +150,9 @@ router.get('/projects/:projectId/report-config',
   async (req, res) => {
     try {
       const projectId = parseInt(req.params.projectId);
+      console.log('Fetching report config for projectId:', projectId);
       const config = await reportService.getReportConfig(projectId);
-      
+      console.log('Fetched report config:', config);
       if (!config) {
         return res.json({ 
           isEnabled: false, 
@@ -64,9 +170,48 @@ router.get('/projects/:projectId/report-config',
   }
 );
 
+router.delete('/projects/:projectId/report-config', 
+  authMiddleware, 
+  requireTeacher,
+  async (req, res) => {
+    try {
+      const projectId = parseInt(req.params.projectId);
+      await reportService.deleteReportConfig(projectId);
+      res.json({ message: 'Configuration supprimée avec succès' });
+    } catch (error: any) {
+      console.error('Erreur deleteReportConfig:', error);
+      res.status(500).json({ message: error.message });
+    }
+  }
+);
 
+// ============================================================================
+// ROUTES GROUPS
+// ============================================================================
 
-
+/**
+ * @swagger
+ * /api/reports/groups/{groupId}/projects/{projectId}:
+ *   get:
+ *     summary: Get report for a specific group
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: path
+ *         name: groupId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Group report retrieved successfully
+ */
 router.get('/groups/:groupId/projects/:projectId', 
   authMiddleware, 
   async (req, res) => {
@@ -83,6 +228,27 @@ router.get('/groups/:groupId/projects/:projectId',
     }
   }
 );
+
+router.post('/groups/:groupId/projects/:projectId/submit', 
+  authMiddleware, 
+  async (req, res) => {
+    try {
+      const { groupId, projectId } = req.params;
+      const submitted = await reportService.submitReport(
+        parseInt(projectId), 
+        parseInt(groupId)
+      );
+      res.json(submitted);
+    } catch (error: any) {
+      console.error('Erreur submitReport:', error);
+      res.status(500).json({ message: error.message });
+    }
+  }
+);
+
+// ============================================================================
+// ROUTES SECTIONS
+// ============================================================================
 
 router.put('/sections/:sectionConfigId/content', 
   authMiddleware, 
@@ -105,26 +271,39 @@ router.put('/sections/:sectionConfigId/content',
   }
 );
 
-
-router.post('/groups/:groupId/projects/:projectId/submit', 
+router.delete('/sections/:sectionId', 
   authMiddleware, 
+  requireTeacher,
   async (req, res) => {
     try {
-      const { groupId, projectId } = req.params;
-      const submitted = await reportService.submitReport(
-        parseInt(projectId), 
-        parseInt(groupId)
-      );
-      res.json(submitted);
+      const sectionId = parseInt(req.params.sectionId);
+      await reportService.deleteReportSection(sectionId);
+      res.json({ message: 'Section supprimée avec succès' });
     } catch (error: any) {
-      console.error('Erreur submitReport:', error);
+      console.error('Erreur deleteReportSection:', error);
       res.status(500).json({ message: error.message });
     }
   }
 );
 
+router.delete('/section-config/:sectionConfigId', 
+  authMiddleware, 
+  requireTeacher,
+  async (req, res) => {
+    try {
+      const sectionConfigId = parseInt(req.params.sectionConfigId);
+      await reportService.deleteSectionConfig(sectionConfigId);
+      res.json({ message: 'Section de configuration supprimée' });
+    } catch (error: any) {
+      console.error('Erreur deleteSectionConfig:', error);
+      res.status(500).json({ message: error.message });
+    }
+  }
+);
 
-
+// ============================================================================
+// ROUTES GÉNÉRIQUES (doivent être définies EN DERNIER pour éviter les conflits)
+// ============================================================================
 
 router.get('/:reportId', 
   authMiddleware, 
@@ -145,33 +324,6 @@ router.get('/:reportId',
   }
 );
 
-
-router.post('/', authMiddleware, async (req, res) => {
-  try {
-    const { title, description, groupId, projectId } = req.body;
-    const report = await reportService.createReport(projectId, groupId, title, description);
-    res.status(201).json(report);
-  } catch (error: any) {
-    console.error('Erreur createReport:', error);
-    res.status(500).json({ message: error.message });
-  }
-});
-router.delete('/section-config/:sectionConfigId', 
-  authMiddleware, 
-  requireTeacher,
-  async (req, res) => {
-    try {
-      const sectionConfigId = parseInt(req.params.sectionConfigId);
-      await reportService.deleteSectionConfig(sectionConfigId);
-      res.json({ message: 'Section de configuration supprimée' });
-    } catch (error: any) {
-      console.error('Erreur deleteSectionConfig:', error);
-      res.status(500).json({ message: error.message });
-    }
-  }
-);
-
-// Supprimer un rapport complet (enseignant uniquement)
 router.delete('/:reportId', 
   authMiddleware, 
   requireTeacher,
@@ -187,35 +339,4 @@ router.delete('/:reportId',
   }
 );
 
-// Supprimer une section d'un rapport (enseignant uniquement)
-router.delete('/sections/:sectionId', 
-  authMiddleware, 
-  requireTeacher,
-  async (req, res) => {
-    try {
-      const sectionId = parseInt(req.params.sectionId);
-      await reportService.deleteReportSection(sectionId);
-      res.json({ message: 'Section supprimée avec succès' });
-    } catch (error: any) {
-      console.error('Erreur deleteReportSection:', error);
-      res.status(500).json({ message: error.message });
-    }
-  }
-);
-
-// Supprimer la configuration complète d'un projet
-router.delete('/projects/:projectId/report-config', 
-  authMiddleware, 
-  requireTeacher,
-  async (req, res) => {
-    try {
-      const projectId = parseInt(req.params.projectId);
-      await reportService.deleteReportConfig(projectId);
-      res.json({ message: 'Configuration supprimée avec succès' });
-    } catch (error: any) {
-      console.error('Erreur deleteReportConfig:', error);
-      res.status(500).json({ message: error.message });
-    }
-  }
-);
 export default router;
