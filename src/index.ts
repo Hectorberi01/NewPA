@@ -24,12 +24,6 @@ const main = async () => {
         app.use(express.urlencoded({ extended: true }));
 
         setupSwagger(app);
-        // 3. Routes
-        //app.use('/users', userRoutes);
-        //app.use('/promotions', promotionRoutes);
-        //app.use('/projects', projectRoutes);
-
-        
 
         // 5. Lancement serveur
         app.listen(PORT, () => {

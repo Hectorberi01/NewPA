@@ -195,6 +195,7 @@ export class ReportService {
 
 
   async getReportsByProject(projectId: number): Promise<Report[]> {
+    console.log("Fetching reports for projectId:", projectId);
     return await this.reportRepository
       .createQueryBuilder('report')
       .leftJoinAndSelect('report.group', 'group')

@@ -3,6 +3,7 @@ import { DataSource } from "typeorm";
 import * as dotenv from "dotenv";
 import { U } from "@faker-js/faker/dist/airline-CLphikKp";
 import { CriterionGrade, Defense, Deliverable, DeliverableRule, DeliverableSubmission, Grade, GradingCriterion, GradingGrid, Group, Project, Report, Promotion, ReportSection, User, SubmissionFingerprint, SimilarityResult, ReportConfig, ReportSectionConfig } from "../entities/Entities";
+import { fa } from "@faker-js/faker/.";
 dotenv.config();
 console.log('Connecting to database with config:')
 
@@ -20,7 +21,7 @@ const DB_USERNAME = process.env.DB_USERNAME ?? process.env.DB_USER ?? 'root';
     password: DB_PASSWORD,
     database: DB_DATABASE,
     synchronize: true,
-    logging: true,
+    logging: false,
     entities: [User, Project, Promotion, Group, Deliverable, DeliverableRule, DeliverableSubmission, Report,
       ReportSection, Defense, GradingGrid, GradingCriterion, Grade, CriterionGrade, SubmissionFingerprint, SimilarityResult,
       ReportConfig , ReportSectionConfig
