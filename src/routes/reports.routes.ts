@@ -11,6 +11,26 @@ const reportService = new ReportService();
 router.post('/', authMiddleware, reportController.createReport.bind(reportController));
 router.put('/:id/sections', authMiddleware, reportController.updateSection.bind(reportController));
 
+
+/**
+ * @swagger
+ * /api/reports/projects/{projectId}:
+ *   get:
+ *     summary: Get all reports for a specific project (Teacher only)
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: List of reports for the project
+ */
+
 router.get('/projects/:projectId', 
   authMiddleware, 
   requireTeacher, 
@@ -25,6 +45,46 @@ router.get('/projects/:projectId',
     }
   }
 );
+
+/**
+ * @swagger
+ * /api/reports/projects/{projectId}/report-config:
+ *   post:
+ *     summary: Save report configuration for a project (Teacher only)
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               isEnabled:
+ *                 type: boolean
+ *               sections:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     sectionTitle:
+ *                       type: string
+ *                     orderIndex:
+ *                       type: integer
+ *               format:
+ *                 type: string
+ *                 enum: [markdown, pdf]
+ *     responses:
+ *       200:
+ *         description: Report configuration saved successfully
+ */
 router.post('/projects/:projectId/report-config', 
   authMiddleware, 
   requireTeacher, 
@@ -40,6 +100,24 @@ router.post('/projects/:projectId/report-config',
   }
 );
 
+/** 
+ * * @swagger
+ * /api/reports/projects/{projectId}/report-config:
+ *   get:
+ *     summary: Get report configuration for a project
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Report configuration retrieved successfully
+ */
 router.get('/projects/:projectId/report-config', 
   authMiddleware, 
   async (req, res) => {
@@ -64,9 +142,29 @@ router.get('/projects/:projectId/report-config',
   }
 );
 
-
-
-
+/** 
+ * * @swagger
+ * /api/reports/groups/{groupId}/projects/{projectId}:
+ *   get:
+ *     summary: Get report for a specific group and project
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: groupId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Group report retrieved successfully
+ */
 router.get('/groups/:groupId/projects/:projectId', 
   authMiddleware, 
   async (req, res) => {
@@ -84,6 +182,35 @@ router.get('/groups/:groupId/projects/:projectId',
   }
 );
 
+/** 
+ * @swagger
+ * /api/reports/sections/{sectionConfigId}/content:
+ *   put:
+ *     summary: Update content of a report section
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sectionConfigId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               content:
+ *                 type: string
+ *               groupId:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Section content updated successfully
+ */
 router.put('/sections/:sectionConfigId/content', 
   authMiddleware, 
   async (req, res) => {
@@ -105,7 +232,28 @@ router.put('/sections/:sectionConfigId/content',
   }
 );
 
-
+/** * @swagger
+ * /api/reports/groups/{groupId}/projects/{projectId}/submit:
+ *   post:
+ *     summary: Submit report for a group and project
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: groupId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Report submitted successfully
+ */
 router.post('/groups/:groupId/projects/:projectId/submit', 
   authMiddleware, 
   async (req, res) => {
@@ -124,8 +272,23 @@ router.post('/groups/:groupId/projects/:projectId/submit',
 );
 
 
-
-
+/** * @swagger
+ * /api/reports/{reportId}:
+ *   get:
+ *     summary: Get report by ID
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: reportId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Report retrieved successfully
+ */
 router.get('/:reportId', 
   authMiddleware, 
   async (req, res) => {
@@ -145,7 +308,33 @@ router.get('/:reportId',
   }
 );
 
-
+/** 
+ * @swagger
+ * /api/reports:
+ *   post:
+ *     summary: Create a new report
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               title:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               groupId:
+ *                 type: integer
+ *               projectId:
+ *                 type: integer
+ *     responses:
+ *       201:
+ *         description: Report created successfully
+ */
 router.post('/', authMiddleware, async (req, res) => {
   try {
     const { title, description, groupId, projectId } = req.body;
@@ -156,6 +345,25 @@ router.post('/', authMiddleware, async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
+/** 
+ * @swagger
+ * /api/reports/section-config/{sectionConfigId}:
+ *   delete:
+ *     summary: Delete report section configuration by ID
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sectionConfigId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Section configuration deleted successfully
+ */
 router.delete('/section-config/:sectionConfigId', 
   authMiddleware, 
   requireTeacher,
@@ -172,6 +380,24 @@ router.delete('/section-config/:sectionConfigId',
 );
 
 // Supprimer un rapport complet (enseignant uniquement)
+/** 
+ * @swagger
+ * /api/reports/{reportId}:
+ *   delete:
+ *     summary: Delete report by ID
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: reportId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Report deleted successfully
+ */
 router.delete('/:reportId', 
   authMiddleware, 
   requireTeacher,
@@ -188,6 +414,24 @@ router.delete('/:reportId',
 );
 
 // Supprimer une section d'un rapport (enseignant uniquement)
+/** 
+ * @swagger
+ * /api/reports/sections/{sectionId}:
+ *   delete:
+ *     summary: Delete report section by ID
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sectionId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Report section deleted successfully
+ */
 router.delete('/sections/:sectionId', 
   authMiddleware, 
   requireTeacher,
@@ -204,6 +448,24 @@ router.delete('/sections/:sectionId',
 );
 
 // Supprimer la configuration complète d'un projet
+/** 
+ * @swagger
+ * /api/reports/projects/{projectId}/report-config:
+ *   delete:
+ *     summary: Delete report configuration for a project
+ *     tags: [Reports]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: projectId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Report configuration deleted successfully
+ */
 router.delete('/projects/:projectId/report-config', 
   authMiddleware, 
   requireTeacher,

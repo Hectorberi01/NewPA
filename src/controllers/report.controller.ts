@@ -92,7 +92,7 @@ export class ReportController {
 
   /**
    * @swagger
-   * /api/projects/{projectId}/reports:
+   * /api/reports/projects/{projectId}/reports:
    *   get:
    *     summary: Get all reports for a project
    *     tags: [Reports]
@@ -120,7 +120,7 @@ export class ReportController {
 
   /**
    * @swagger
-   * /api/projects/{projectId}/groups/{groupId}/report:
+   * /api/reports/projects/{projectId}/groups/{groupId}/report:
    *   get:
    *     summary: Get report for a specific group
    *     tags: [Reports]
