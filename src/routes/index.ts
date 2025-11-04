@@ -24,7 +24,6 @@ router.use('/grading', gradingRoutes);
 
 // Routes combinées pour certaines fonctionnalités
 router.use('/projects/:projectId/groups', groupRoutes);
-//router.use('/projects/:projectId/reports', reportRoutes);
 router.use('/projects/defenses', defenseRoutes);
 router.use('/projects/:projectId/deliverables', deliverableRoutes);
 router.use('/projects/:projectId/defenses', defenseRoutes);
