@@ -38,8 +38,7 @@ class UserService {
         for (const email of emails) {
             let student = await this.findByEmail(email);
             if (!student) {
-                // Générer un mot de passe temporaire
-                const tempPassword = password_service_1.PasswordService.generateTemporaryPassword();
+                const tempPassword = "ESGI12345"; //PasswordService.generateTemporaryPassword();
                 const hashedPassword = await password_service_1.PasswordService.hashPassword(tempPassword);
                 student = await this.createUser({
                     email,
@@ -48,15 +47,12 @@ class UserService {
                     role: 'student',
                     password: hashedPassword
                 });
-                // Envoyer email de création de compte
                 await this.emailService.sendAccountCreationEmail(email, student.firstName, tempPassword);
             }
-            // Vérifier si l'étudiant n'est pas déjà dans la promotion
             if (!promotion.students.some(s => s.id === student.id)) {
                 students.push(student);
             }
         }
-        // Ajouter les nouveaux étudiants à la promotion
         promotion.students = [...promotion.students, ...students];
         await this.promotionRepository.save(promotion);
         return students;

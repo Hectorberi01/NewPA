@@ -29,6 +29,12 @@ router.get('/projects/:projectId/summary', auth_middleware_1.authMiddleware, aut
 router.get('/students/my-grades', auth_middleware_1.authMiddleware, gradingController.getStudentGrades.bind(gradingController));
 router.get('/students/projects/:projectId/grades', auth_middleware_1.authMiddleware, gradingController.getStudentProjectGrades.bind(gradingController));
 router.get('/students/grades/:gradeId/details', auth_middleware_1.authMiddleware, gradingController.getGradeDetails.bind(gradingController));
+router.get('/sessions', auth_middleware_1.authMiddleware, gradingController.getGradingSession.bind(gradingController));
+router.post('/sessions', auth_middleware_1.authMiddleware, auth_middleware_1.requireTeacher, gradingController.createOrUpdateGradingSession.bind(gradingController));
+router.put('/sessions/:id', auth_middleware_1.authMiddleware, auth_middleware_1.requireTeacher, gradingController.createOrUpdateGradingSession.bind(gradingController));
+// Dans grading.routes.ts - AJOUTEZ CETTE ROUTE
+router.get('/sessions/project/:projectId', auth_middleware_1.authMiddleware, gradingController.getGradingSessionsByProject.bind(gradingController));
+router.put('/projects/:projectId/weights', auth_middleware_1.authMiddleware, auth_middleware_1.requireTeacher, gradingController.updateGridWeights.bind(gradingController));
 exports.default = router;
 /*POST   /api/grading/grids
 GET    /api/grading/projects/:projectId/grids?deliverableId=X

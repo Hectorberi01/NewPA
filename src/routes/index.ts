@@ -18,7 +18,7 @@ router.use('/projects', projectRoutes);
 router.use('/deliverables', deliverableRoutes);
 router.use('/promotions', promotionRoutes);
 router.use('/groups', groupRoutes);
-router.use('/reports', reportRoutes);
+//router.use('/reports', reportRoutes);
 router.use('/defenses', defenseRoutes);
 router.use('/grading', gradingRoutes);
 

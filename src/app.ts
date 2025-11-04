@@ -10,6 +10,7 @@ import path from 'path';
 import passport from 'passport';
 import session from 'express-session';
 import "./config/passport";
+import reportRoutes from './routes/reports.routes';
 
 
 dotenv.config();
@@ -143,6 +144,7 @@ app.get('/', (req, res) => {
 
 // ===== ROUTES API =====
 app.use('/api', routes);
+app.use('/api/reports', reportRoutes); // Pour s'assurer que les routes des rapports fonctionnent
 
 // ===== ERROR HANDLERS =====
 app.use(notFoundHandler);

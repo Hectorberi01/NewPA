@@ -67,7 +67,6 @@ class SimilarityEngine {
     }
 }
 exports.SimilarityEngine = SimilarityEngine;
-// --- helpers ---
 function groupBy(arr, fn) {
     const m = new Map();
     for (const x of arr) {

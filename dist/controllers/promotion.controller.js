@@ -137,13 +137,33 @@ class PromotionController {
      */
     async addStudents(req, res) {
         try {
-            const promotionId = parseInt(req.params.id);
-            const data = req.body;
-            const promotion = await this.promotionService.addStudentsToPromotion(promotionId, data);
+            const promotionId = parseInt(req.params.promotionId) || parseInt(req.params.Id); // ✅ Parser en nombre
+            const studentsData = req.body;
+            console.log('Add students request:', {
+                promotionId,
+                studentsCount: studentsData?.length,
+                studentsData
+            });
+            if (isNaN(promotionId)) {
+                return res.status(400).json({ error: 'ID de promotion invalide' });
+            }
+            if (!Array.isArray(studentsData) || studentsData.length === 0) {
+                return res.status(400).json({ error: 'Données étudiants invalides' });
+            }
+            const normalizedStudents = studentsData.map(student => ({
+                email: student.email,
+                firstName: student.firstName || student.prenom || student.email.split('@')[0],
+                lastName: student.lastName || student.nom || 'Étudiant'
+            }));
+            const promotion = await this.promotionService.addStudentsToPromotion(promotionId, normalizedStudents);
             res.json(promotion);
         }
         catch (error) {
-            res.status(500).json({ error: 'Internal Server Error' });
+            console.error('Error in addStudents:', error);
+            res.status(500).json({
+                error: 'Erreur lors de l\'ajout des étudiants',
+                details: error.message
+            });
         }
     }
     /**
@@ -330,6 +350,8 @@ class PromotionController {
         try {
             const promotionId = parseInt(req.params.id);
             const file = req.file;
+            console.log("File reçu:", file);
+            console.log("Promotion ID:", promotionId);
             if (!file) {
                 return res.status(400).json({ error: 'Aucun fichier fourni' });
             }
@@ -342,7 +364,7 @@ class PromotionController {
         }
         catch (error) {
             res.status(500).json({
-                error: error || 'Erreur lors de l\'import des étudiants'
+                error: error.message || 'Erreur lors de l\'import des étudiants'
             });
         }
     }

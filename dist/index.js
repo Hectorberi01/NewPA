@@ -6,10 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const data_source_1 = require("./database/data-source");
-const users_routes_1 = __importDefault(require("./routes/users.routes"));
 const swagger_1 = require("./config/swagger");
-const promotions_routes_1 = __importDefault(require("./routes/promotions.routes"));
-const projects_routes_1 = __importDefault(require("./routes/projects.routes"));
 const app = (0, express_1.default)();
 const PORT = process.env.PROMOTION_PORT || 3000;
 const main = async () => {
@@ -21,10 +18,6 @@ const main = async () => {
         app.use(express_1.default.json());
         app.use(express_1.default.urlencoded({ extended: true }));
         (0, swagger_1.setupSwagger)(app);
-        // 3. Routes
-        app.use('/users', users_routes_1.default);
-        app.use('/promotions', promotions_routes_1.default);
-        app.use('/projects', projects_routes_1.default);
         // 5. Lancement serveur
         app.listen(PORT, () => {
             console.log(`Server is running on port ${PORT}`);

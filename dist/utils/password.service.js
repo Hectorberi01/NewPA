@@ -12,6 +12,7 @@ class PasswordService {
         return await bcrypt_1.default.hash(password, saltRounds);
     }
     static async comparePasswords(plainPassword, hashedPassword) {
+        console.log("Comparing passwords:", plainPassword, hashedPassword);
         return await bcrypt_1.default.compare(plainPassword, hashedPassword);
     }
     static generateTemporaryPassword(length = 12) {

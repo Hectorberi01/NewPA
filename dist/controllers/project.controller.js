@@ -275,7 +275,11 @@ class ProjectController {
             res.status(204).send();
         }
         catch (error) {
-            res.status(500).json({ error: 'Internal Server Error' });
+            console.error('Erreur suppression projet:', error);
+            res.status(500).json({
+                error: 'Internal Server Error',
+                details: error.message
+            });
         }
     }
     /**

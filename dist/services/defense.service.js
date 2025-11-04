@@ -12,8 +12,6 @@ class DefenseService {
         if (!this.ds)
             throw new Error("DataSource not provided");
     }
-    // DTO pour la création/planification des défenses
-    // Dans votre service/controller
     async scheduleDefenses(projectId, startDateTime, durationPerGroup, location, mode = 'fixed_duration', endDateTime) {
         // Validation
         if (!projectId || isNaN(projectId)) {

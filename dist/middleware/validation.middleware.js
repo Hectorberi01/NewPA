@@ -32,6 +32,6 @@ exports.validateCreateDeliverable = [
     (0, express_validator_1.body)('deadline').isISO8601().withMessage('Invalid deadline format'),
     (0, express_validator_1.body)('projectId').isInt().withMessage('Project ID must be an integer'),
     (0, express_validator_1.body)('allowLateSubmission').optional().isBoolean(),
-    (0, express_validator_1.body)('penaltyPerHour').optional().isInt({ min: 0 }),
+    (0, express_validator_1.body)('penaltyPerHour').optional().isFloat({ min: 0 }).withMessage('penaltyPerHour must be a number ≥ 0').toFloat(),
     exports.handleValidationErrors
 ];

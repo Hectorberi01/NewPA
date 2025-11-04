@@ -16,14 +16,15 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.defaultFingerprintServices = defaultFingerprintServices;
 exports.buildFingerprints = buildFingerprints;
-// Barrel exports
 __exportStar(require("./fingerprint.types"), exports);
 __exportStar(require("./text-fingerprint.service"), exports);
 __exportStar(require("./ast-fingerprint.service"), exports);
+__exportStar(require("./java-ast-fingerprint.service"), exports);
 const text_fingerprint_service_1 = require("./text-fingerprint.service");
 const ast_fingerprint_service_1 = require("./ast-fingerprint.service");
+const java_ast_fingerprint_service_1 = require("./java-ast-fingerprint.service");
 function defaultFingerprintServices() {
-    return [new text_fingerprint_service_1.TextFingerprintService(5), new ast_fingerprint_service_1.AstFingerprintService(7)]; // k par défaut
+    return [new text_fingerprint_service_1.TextFingerprintService(5), new ast_fingerprint_service_1.AstFingerprintService(7), new java_ast_fingerprint_service_1.JavaAstFingerprintService(7)]; // k par défaut
 }
 async function buildFingerprints(files, services = defaultFingerprintServices()) {
     const out = [];

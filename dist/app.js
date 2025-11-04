@@ -37,6 +37,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
+const dotenv = __importStar(require("dotenv"));
 const cors_1 = __importDefault(require("cors"));
 const helmet_1 = __importDefault(require("helmet"));
 const routes_1 = __importDefault(require("./routes"));
@@ -46,7 +47,7 @@ const path_1 = __importDefault(require("path"));
 const passport_1 = __importDefault(require("passport"));
 const express_session_1 = __importDefault(require("express-session"));
 require("./config/passport");
-const dotenv = __importStar(require("dotenv"));
+const reports_routes_1 = __importDefault(require("./routes/reports.routes"));
 dotenv.config();
 const PORT = Number(process.env.PORT) || 3000;
 const app = (0, express_1.default)();
@@ -163,6 +164,7 @@ app.get('/', (req, res) => {
 });
 // ===== ROUTES API =====
 app.use('/api', routes_1.default);
+app.use('/api/reports', reports_routes_1.default); // Pour s'assurer que les routes des rapports fonctionnent
 // ===== ERROR HANDLERS =====
 app.use(error_middleware_1.notFoundHandler);
 app.use(error_middleware_1.errorHandler);

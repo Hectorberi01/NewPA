@@ -85,6 +85,44 @@ class GradingService {
         Object.assign(criterion, criterionData);
         return await this.criterionRepository.save(criterion);
     }
+    // Dans GradingService - AJOUTEZ CETTE MÉTHODE
+    async getGradingSessionByGridAndGroup(gridId, groupId) {
+        const grade = await this.gradeRepository.findOne({
+            where: {
+                gradingGrid: { id: gridId },
+                group: { id: groupId }
+            },
+            relations: [
+                'gradingGrid',
+                'gradingGrid.criteria',
+                'group',
+                'criterionGrades',
+                'criterionGrades.criterion'
+            ]
+        });
+        if (!grade) {
+            return null;
+        }
+        return {
+            id: grade.id,
+            gridId: grade.gradingGrid.id,
+            groupId: grade.group.id,
+            entries: grade.criterionGrades?.map(cg => ({
+                id: cg.id,
+                criterionId: cg.criterion.id,
+                groupId: grade.group.id,
+                score: cg.score,
+                comment: cg.comments || '',
+                gradedBy: 0,
+                status: grade.isValidated ? 'validated' : 'draft'
+            })) || [],
+            globalComment: grade.globalComments || '',
+            totalScore: grade.totalScore || 0,
+            status: grade.isValidated ? 'validated' : 'draft',
+            gradedBy: 0,
+            gradedAt: grade.updatedAt
+        };
+    }
     // Suppression d'un critère de notation
     async deleteCriterion(id) {
         const criterion = await this.criterionRepository.findOne({
@@ -251,7 +289,6 @@ class GradingService {
         }
         return totalWeight > 0 ? weightedSum / totalWeight : 0;
     }
-    // Récupérer le résumé des notes d'un projet
     async getProjectGradingSummary(projectId) {
         const project = await this.projectRepository.findOne({
             where: { id: projectId },
@@ -299,28 +336,6 @@ class GradingService {
         };
         return summary;
     }
-    // Exporter les notes d'un projet au format CSV
-    async exportGradesToCSV(projectId) {
-        const summary = await this.getProjectGradingSummary(projectId);
-        let csv = 'Groupe,Étudiants';
-        // En-têtes des grilles de notation
-        summary.gradingGrids.forEach((grid) => {
-            csv += `,${grid.name}`;
-        });
-        csv += ',Note Finale\n';
-        // Données des groupes
-        summary.groups.forEach((group) => {
-            csv += `${group.name},"${group.members.map((m) => `${m.firstName} ${m.lastName}`).join(', ')}"`;
-            // Notes par grille
-            summary.gradingGrids.forEach((grid) => {
-                const grade = group.grades.find((g) => g.gridName === grid.name);
-                csv += `,${grade ? grade.totalScore?.toFixed(2) : 'Non noté'}`;
-            });
-            csv += `,${group.finalGrade?.toFixed(2)}\n`;
-        });
-        return csv;
-    }
-    // Récupérer les statistiques de notation d'un projet
     async getGradingStatistics(projectId) {
         const grades = await this.getGradesByProject(projectId);
         const project = await this.projectRepository.findOne({
@@ -355,6 +370,36 @@ class GradingService {
             };
         }
         return statistics;
+    }
+    async updateGridWeights(projectId, weights) {
+        const gridIds = weights.map(w => w.gridId);
+        const grids = await this.gradingGridRepository.find({
+            where: {
+                id: (0, typeorm_1.In)(gridIds),
+                project: { id: projectId }
+            },
+            relations: ['project']
+        });
+        if (grids.length !== weights.length) {
+            const foundIds = grids.map(g => g.id);
+            const missingIds = gridIds.filter(id => !foundIds.includes(id));
+            throw new Error(`Les grilles suivantes n'appartiennent pas au projet ${projectId}: ${missingIds.join(', ')}`);
+        }
+        const updatedGrids = [];
+        await this.gradingGridRepository.manager.transaction(async (manager) => {
+            for (const { gridId, weight } of weights) {
+                await manager.update(Entities_1.GradingGrid, { id: gridId }, { weight });
+                // Récupérer la grille mise à jour
+                const updatedGrid = await manager.findOne(Entities_1.GradingGrid, {
+                    where: { id: gridId },
+                    relations: ['project', 'criteria']
+                });
+                if (updatedGrid) {
+                    updatedGrids.push(updatedGrid);
+                }
+            }
+        });
+        return updatedGrids;
     }
     calculateMedian(scores) {
         const sorted = scores.sort((a, b) => a - b);
@@ -415,7 +460,6 @@ class GradingService {
         }
         return duplicatedGrid;
     }
-    // Dans grading.service.ts
     async getOrCreateGradingSession(gridId, groupId) {
         // Chercher une session existante
         const existingGrade = await this.gradeRepository.findOne({
@@ -434,8 +478,6 @@ class GradingService {
         if (existingGrade) {
             return existingGrade;
         }
-        // Si pas de session, retourner null
-        // Le frontend créera une nouvelle session
         return null;
     }
     async saveGradingSession(gridId, groupId, sessionData, gradeId) {
@@ -452,7 +494,6 @@ class GradingService {
             throw new Error('Group not found');
         let grade;
         if (gradeId && gradeId > 0) {
-            // Mise à jour d'une session existante
             const existingGrade = await this.gradeRepository.findOne({
                 where: { id: gradeId },
                 relations: ['criterionGrades']
@@ -469,7 +510,6 @@ class GradingService {
             }
         }
         else {
-            // Création d'une nouvelle session
             grade = this.gradeRepository.create({
                 gradingGrid: grid,
                 group: group,
@@ -509,10 +549,8 @@ class GradingService {
             throw new Error('Grade not found after saving');
         return result;
     }
-    // Dans grading.service.ts
     async getStudentGrades(userId) {
         const gradeRepo = data_source_1.AppDataSource.getRepository(Entities_1.Grade);
-        // Récupérer tous les groupes de l'étudiant
         const userRepo = data_source_1.AppDataSource.getRepository(Entities_1.User);
         const user = await userRepo.findOne({
             where: { id: userId },
@@ -522,7 +560,6 @@ class GradingService {
             return [];
         }
         const groupIds = user.groups.map(g => g.id);
-        // Récupérer toutes les notes validées pour ces groupes
         const grades = await gradeRepo.find({
             where: {
                 group: { id: (0, typeorm_1.In)(groupIds) },
@@ -539,7 +576,6 @@ class GradingService {
                 updatedAt: 'DESC'
             }
         });
-        // Formater les données pour le frontend
         return grades.map(grade => ({
             id: grade.id,
             projectName: grade.group.project.name,
@@ -562,7 +598,6 @@ class GradingService {
     }
     async getStudentProjectGrades(userId, projectId) {
         const gradeRepo = data_source_1.AppDataSource.getRepository(Entities_1.Grade);
-        // Trouver le groupe de l'étudiant pour ce projet
         const groupRepo = data_source_1.AppDataSource.getRepository(Entities_1.Group);
         const group = await groupRepo
             .createQueryBuilder('group')
@@ -633,7 +668,6 @@ class GradingService {
         if (!grade) {
             return null;
         }
-        // Vérifier que l'étudiant fait partie du groupe
         const isMember = grade.group.members.some(m => m.id === userId);
         if (!isMember) {
             throw new Error('Accès non autorisé à cette note');
@@ -668,6 +702,175 @@ class GradingService {
         return grid.criteria.reduce((sum, criterion) => {
             return sum + (criterion.maxScore * criterion.weight);
         }, 0);
+    }
+    async getGradingSessions(projectId, type) {
+        const query = this.gradeRepository
+            .createQueryBuilder('grade')
+            .leftJoinAndSelect('grade.gradingGrid', 'gradingGrid')
+            .leftJoinAndSelect('grade.group', 'group')
+            .leftJoinAndSelect('grade.criterionGrades', 'criterionGrades')
+            .leftJoinAndSelect('criterionGrades.criterion', 'criterion')
+            .leftJoinAndSelect('gradingGrid.criteria', 'criteria')
+            .where('gradingGrid.projectId = :projectId', { projectId });
+        if (type) {
+            query.andWhere('gradingGrid.type = :type', { type });
+        }
+        const grades = await query.getMany();
+        return grades.map(grade => ({
+            id: grade.id,
+            gridId: grade.gradingGrid.id,
+            groupId: grade.group.id,
+            entries: grade.criterionGrades?.map(cg => ({
+                id: cg.id,
+                criterionId: cg.criterion.id,
+                groupId: grade.group.id,
+                score: cg.score,
+                comment: cg.comments || '',
+                gradedBy: 0, // À adapter selon votre modèle
+                status: grade.isValidated ? 'validated' : 'draft'
+            })) || [],
+            globalComment: grade.globalComments || '',
+            totalScore: grade.totalScore || 0,
+            status: grade.isValidated ? 'validated' : 'draft',
+            gradedBy: 0, // À adapter selon votre modèle
+            gradedAt: grade.updatedAt
+        }));
+    }
+    async getGradingSessionById(id) {
+        const grade = await this.gradeRepository.findOne({
+            where: { id },
+            relations: [
+                'gradingGrid',
+                'gradingGrid.criteria',
+                'group',
+                'criterionGrades',
+                'criterionGrades.criterion'
+            ]
+        });
+        if (!grade) {
+            return null;
+        }
+        return {
+            id: grade.id,
+            gridId: grade.gradingGrid.id,
+            groupId: grade.group.id,
+            entries: grade.criterionGrades?.map(cg => ({
+                id: cg.id,
+                criterionId: cg.criterion.id,
+                groupId: grade.group.id,
+                score: cg.score,
+                comment: cg.comments || '',
+                gradedBy: 0,
+                status: grade.isValidated ? 'validated' : 'draft'
+            })) || [],
+            globalComment: grade.globalComments || '',
+            totalScore: grade.totalScore || 0,
+            status: grade.isValidated ? 'validated' : 'draft',
+            gradedBy: 0,
+            gradedAt: grade.updatedAt
+        };
+    }
+    async createOrUpdateGradingSession(sessionData) {
+        const { id, gridId, groupId, entries, globalComment, totalScore, status } = sessionData;
+        const grid = await this.gradingGridRepository.findOne({
+            where: { id: gridId },
+            relations: ['criteria']
+        });
+        if (!grid) {
+            throw new Error('Grading grid not found');
+        }
+        const group = await this.groupRepository.findOne({
+            where: { id: groupId }
+        });
+        if (!group) {
+            throw new Error('Group not found');
+        }
+        let grade;
+        if (id && id > 0) {
+            grade = await this.gradeRepository.findOne({
+                where: { id },
+                relations: ['criterionGrades']
+            });
+            if (!grade) {
+                throw new Error('Grade not found');
+            }
+            grade.globalComments = globalComment;
+            grade.totalScore = totalScore;
+            grade.isValidated = status === 'validated';
+            if (grade.criterionGrades && grade.criterionGrades.length > 0) {
+                await this.criterionGradeRepository.remove(grade.criterionGrades);
+            }
+        }
+        else {
+            grade = this.gradeRepository.create({
+                gradingGrid: grid,
+                group: group,
+                globalComments: globalComment,
+                totalScore: totalScore,
+                isValidated: status === 'validated'
+            });
+        }
+        const savedGrade = await this.gradeRepository.save(grade);
+        const criterionGrades = [];
+        for (const entry of entries) {
+            const criterion = grid.criteria.find(c => c.id === entry.criterionId);
+            if (!criterion) {
+                console.warn(`Criterion with id ${entry.criterionId} not found in grid ${gridId}`);
+                continue;
+            }
+            const criterionGrade = this.criterionGradeRepository.create({
+                grade: savedGrade,
+                criterion: criterion,
+                score: entry.score,
+                comments: entry.comment || ''
+            });
+            criterionGrades.push(criterionGrade);
+        }
+        if (criterionGrades.length > 0) {
+            await this.criterionGradeRepository.save(criterionGrades);
+        }
+        const result = await this.gradeRepository.findOne({
+            where: { id: savedGrade.id },
+            relations: [
+                'gradingGrid',
+                'gradingGrid.criteria',
+                'group',
+                'criterionGrades',
+                'criterionGrades.criterion'
+            ]
+        });
+        if (!result) {
+            throw new Error('Grade not found after saving');
+        }
+        return {
+            id: result.id,
+            gridId: result.gradingGrid.id,
+            groupId: result.group.id,
+            entries: result.criterionGrades?.map(cg => ({
+                id: cg.id,
+                criterionId: cg.criterion.id,
+                groupId: result.group.id,
+                score: cg.score,
+                comment: cg.comments || '',
+                gradedBy: 0,
+                status: result.isValidated ? 'validated' : 'draft'
+            })) || [],
+            globalComment: result.globalComments || '',
+            totalScore: result.totalScore || 0,
+            status: result.isValidated ? 'validated' : 'draft',
+            gradedBy: 0,
+            gradedAt: result.updatedAt
+        };
+    }
+    async getGradingGridsByProjectAndType(projectId, type) {
+        return await this.gradingGridRepository.find({
+            where: {
+                project: { id: projectId },
+                type: type
+            },
+            relations: ['criteria'],
+            order: { createdAt: 'ASC' }
+        });
     }
 }
 exports.GradingService = GradingService;

@@ -13,6 +13,8 @@ export class ReportService {
     this.sectionRepository = AppDataSource.getRepository(ReportSection);
     this.configRepository = AppDataSource.getRepository(ReportConfig);
     this.sectionConfigRepository = AppDataSource.getRepository(ReportSectionConfig);
+    console.log('Initializing report routes');
+
   }
 
 

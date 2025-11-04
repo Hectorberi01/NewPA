@@ -10,7 +10,7 @@ async function ensureDatabase() {
     const port = Number(process.env.DB_PORT || 3306);
     const user = process.env.DB_USER || "root";
     const password = process.env.DB_PASSWORD || "";
-    const db = process.env.DB_NAME || "projectacademy";
+    const db = process.env.DB_NAME || "student_projects";
     // se connecter SANS database
     const pool = await (0, promise_1.createPool)({ host, port, user, password });
     await pool.query(`CREATE DATABASE IF NOT EXISTS \`${db}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);

@@ -7,10 +7,11 @@ exports.DeliverableService = void 0;
 const data_source_1 = require("../database/data-source");
 const Entities_1 = require("../entities/Entities");
 const file_validation_service_1 = require("../utils/file-validation.service");
-const similarity_service_1 = require("../utils/similarity.service");
 const email_service_1 = require("../utils/email.service");
 const path_1 = __importDefault(require("path"));
 const promises_1 = __importDefault(require("fs/promises"));
+const aggregator_service_1 = require("./anticheat/aggregator/aggregator.service");
+const anticheat_service_1 = require("./anticheat/anticheat.service");
 class DeliverableService {
     constructor() {
         this.deliverableRepository = data_source_1.AppDataSource.getRepository(Entities_1.Deliverable);
@@ -95,6 +96,58 @@ class DeliverableService {
             order: { submittedAt: 'ASC' }
         });
     }
+    async validateDeliverableBeforeSubmit(deliverableId, groupId, file, gitUrl) {
+        const deliverable = await this.deliverableRepository.findOne({
+            where: { id: deliverableId },
+            relations: ['validationRules']
+        });
+        if (!deliverable)
+            throw new Error('Deliverable not found');
+        const validationResults = {
+            allPassed: true,
+            rules: []
+        };
+        // Simulation de validation - à adapter selon vos règles
+        if (deliverable.type === 'archive' && file) {
+            // Valider la taille du fichier
+            const maxSizeMB = 10; // Récupérer depuis les règles
+            if (file.size > maxSizeMB * 1024 * 1024) {
+                validationResults.rules.push({
+                    type: 'max_size',
+                    passed: false,
+                    message: `Fichier trop volumineux. Maximum: ${maxSizeMB}MB`
+                });
+                validationResults.allPassed = false;
+            }
+            else {
+                validationResults.rules.push({
+                    type: 'max_size',
+                    passed: true,
+                    message: 'Taille du fichier valide'
+                });
+            }
+        }
+        if (deliverable.type === 'git_link' && gitUrl) {
+            // Valider l'URL Git
+            const gitUrlRegex = /^(https?:\/\/)?(www\.)?github\.com\/[a-zA-Z0-9-]+\/[a-zA-Z0-9-_.]+$/;
+            if (!gitUrlRegex.test(gitUrl)) {
+                validationResults.rules.push({
+                    type: 'git_url',
+                    passed: false,
+                    message: 'URL Git invalide'
+                });
+                validationResults.allPassed = false;
+            }
+            else {
+                validationResults.rules.push({
+                    type: 'git_url',
+                    passed: true,
+                    message: 'URL Git valide'
+                });
+            }
+        }
+        return validationResults;
+    }
     async getDeliverablesByProject(projectId) {
         return await this.deliverableRepository.find({
             where: { project: { id: projectId } },
@@ -103,27 +156,60 @@ class DeliverableService {
         });
     }
     async analyzeSimilarity(deliverableId) {
+        // 1) Récupère les soumissions
         const submissions = await this.submissionRepository.find({
             where: { deliverable: { id: deliverableId } },
             relations: ['group']
         });
-        console.log('submissions:', submissions);
-        const similarityResults = await similarity_service_1.SimilarityService.analyzeSubmissionSimilarity(submissions);
-        console.log('Similarity results:', similarityResults);
-        // Sauvegarder les résultats de similarité
-        for (const result of similarityResults) {
-            const submission1 = submissions.find(s => s.group.id === result.groupId1);
-            const submission2 = submissions.find(s => s.group.id === result.groupId2);
-            if (submission1) {
-                submission1.similarityScore = Math.max(submission1.similarityScore || 0, result.similarity);
-                await this.submissionRepository.save(submission1);
-            }
-            if (submission2) {
-                submission2.similarityScore = Math.max(submission2.similarityScore || 0, result.similarity);
-                await this.submissionRepository.save(submission2);
+        if (!submissions.length)
+            return [];
+        // 2) Lance le pipeline anti-cheat pour chaque soumission (extraction → fingerprints → candidats → compare → aggregate)
+        const anti = new anticheat_service_1.AntiCheatService(data_source_1.AppDataSource);
+        for (const s of submissions) {
+            if (s.filePath) {
+                await anti.onSubmissionImported(s.id, s.filePath);
             }
         }
-        return similarityResults;
+        const agg = new aggregator_service_1.AggregatorService(data_source_1.AppDataSource);
+        const topPerSubmission = await Promise.all(submissions.map(s => agg.findTopMatches(s.id, 10)));
+        // Optionnel : renvoie aussi les agrégats mis à jour présents sur DeliverableSubmission
+        const withAggregates = await this.submissionRepository.find({
+            where: { deliverable: { id: deliverableId } },
+            select: ['id', 'textScore', 'astScore', 'similarityScore']
+        });
+        return {
+            matches: topPerSubmission.flat(),
+            aggregates: withAggregates
+        };
+    }
+    // Dans DeliverableService.ts - Ajoutez cette méthode
+    async getGroupSubmission(deliverableId, groupId) {
+        // Validation des IDs
+        if (isNaN(deliverableId) || isNaN(groupId) || deliverableId <= 0 || groupId <= 0) {
+            throw new Error('Invalid deliverable or group ID');
+        }
+        try {
+            const submission = await this.submissionRepository.findOne({
+                where: {
+                    deliverable: { id: deliverableId },
+                    group: { id: groupId }
+                },
+                relations: [
+                    'group',
+                    'group.members',
+                    'deliverable',
+                    'deliverable.validationRules'
+                ],
+                order: {
+                    submittedAt: 'DESC' // Prendre la dernière soumission
+                }
+            });
+            return submission;
+        }
+        catch (error) {
+            console.error('Error fetching group submission:', error);
+            throw new Error('Failed to fetch submission');
+        }
     }
     async getSubmissionSummary(deliverableId) {
         const deliverable = await this.deliverableRepository.findOne({

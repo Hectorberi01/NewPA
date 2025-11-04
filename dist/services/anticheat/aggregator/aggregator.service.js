@@ -11,26 +11,26 @@ class AggregatorService {
     async persistPairScores(scores) {
         if (!scores.length)
             return 0;
-        // 1) Filtre seuil
+        // 1) seuil
         const threshold = this.opts.threshold ?? 0;
         const filtered = scores.filter(s => s.finalScore >= threshold);
-        // 2) Regroupe par paire de soumissions (ordre canonique)
+        // 2) canonicalise + regroupe
         const byPair = new Map();
         for (const s of filtered) {
             const { aId, bId, f1, f2 } = canonicalize(s.sub1, s.sub2, s.file1, s.file2);
             const k = `${aId}|${bId}`;
-            const canon = { sub1: aId, sub2: bId, file1: f1, file2: f2, textScore: s.textScore, astScore: s.astScore, finalScore: s.finalScore };
-            (byPair.get(k) ?? byPair.set(k, []).get(k)).push(canon);
+            (byPair.get(k) ?? byPair.set(k, []).get(k)).push({
+                sub1: aId, sub2: bId, file1: f1, file2: f2,
+                textScore: s.textScore, astScore: s.astScore, finalScore: s.finalScore,
+            });
         }
-        // 3) Pour chaque paire, garde top N par finalScore
-        const toSave = [];
-        const repo = this.ds.getRepository(Entities_1.SimilarityResult);
+        // 3) top N par paire → objets plats (PAS d’entity)
         const topN = this.opts.topPerPair ?? 3;
+        const values = [];
         for (const arr of byPair.values()) {
             arr.sort((a, b) => b.finalScore - a.finalScore);
-            const slice = arr.slice(0, topN);
-            for (const s of slice) {
-                toSave.push(repo.create({
+            for (const s of arr.slice(0, topN)) {
+                values.push({
                     submissionId1: s.sub1,
                     submissionId2: s.sub2,
                     filePath1: s.file1,
@@ -38,29 +38,42 @@ class AggregatorService {
                     textScore: s.textScore,
                     astScore: s.astScore,
                     finalScore: s.finalScore,
-                }));
+                });
             }
         }
-        if (!toSave.length)
+        if (!values.length)
             return 0;
-        // 4) Upsert via contrainte unique (submissionId1,2 + filePath1,2)
-        await repo.upsert(toSave, ['submissionId1', 'submissionId2', 'filePath1', 'filePath2']);
-        return toSave.length;
+        // 4) UPSERT MySQL… sans “updateEntity” pour éviter l’erreur
+        await this.ds
+            .createQueryBuilder()
+            .insert()
+            .into(Entities_1.SimilarityResult)
+            .values(values)
+            .orUpdate(['textScore', 'astScore', 'finalScore'], // colonnes à mettre à jour
+        ['submissionId1', 'submissionId2', 'filePath1', 'filePath2'] // clé unique logique
+        )
+            .updateEntity(false)
+            .execute();
+        return values.length;
     }
     /** Met à jour les champs agrégés (textScore, astScore, similarityScore) d'une soumission. */
     async updateSubmissionAggregates(submissionId) {
         const repo = this.ds.getRepository(Entities_1.SimilarityResult);
-        // MAX des scores pour cette soumission (qu’elle soit à gauche ou à droite)
-        const qb = repo.createQueryBuilder('r')
+        const raw = await repo.createQueryBuilder('r')
             .select('MAX(r.textScore)', 'text')
             .addSelect('MAX(r.astScore)', 'ast')
             .addSelect('MAX(r.finalScore)', 'final')
-            .where('r.submissionId1 = :id OR r.submissionId2 = :id', { id: submissionId });
-        const raw = await qb.getRawOne();
-        const text = raw?.text ? Number(raw.text) : null;
-        const ast = raw?.ast ? Number(raw.ast) : null;
-        const final = raw?.final ? Number(raw.final) : null;
-        await this.ds.getRepository(Entities_1.DeliverableSubmission).update({ id: submissionId }, { textScore: text ?? null, astScore: ast ?? null, similarityScore: final ?? null });
+            .where('r.submissionId1 = :id OR r.submissionId2 = :id', { id: submissionId })
+            .getRawOne();
+        const text = raw?.text != null ? Number(raw.text) : null;
+        const ast = raw?.ast != null ? Number(raw.ast) : null;
+        const final = raw?.final != null ? Number(raw.final) : null;
+        await this.ds
+            .createQueryBuilder()
+            .update(Entities_1.DeliverableSubmission)
+            .set({ textScore: text, astScore: ast, similarityScore: final })
+            .where('id = :id', { id: submissionId })
+            .execute();
         return { text, ast, final };
     }
     /** (Optionnel) Renvoie le top-k des matches pour affichage. */
