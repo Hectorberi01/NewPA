@@ -20,10 +20,7 @@ export class DefenseService {
     if (!this.ds) throw new Error("DataSource not provided");
   }
 
- // DTO pour la création/planification des défenses
 
-
-// Dans votre service/controller
 async scheduleDefenses(
   projectId: number,
   startDateTime: Date,
