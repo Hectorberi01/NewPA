@@ -5,8 +5,8 @@ export class EmailService {
 
   constructor() {
     this.mailjet = new Mailjet({
-      apiKey: process.env.SMTP_USER!,
-      apiSecret: process.env.SMTP_PASS!,
+      apiKey: process.env.MJ_APIKEY_PUBLIC!,
+      apiSecret: process.env.MJ_APIKEY_PRIVATE!
     });
   }
 
@@ -18,7 +18,7 @@ export class EmailService {
           Messages: [
             {
               From: {
-                Email: process.env.FROM_EMAIL?.replace(/['"]+/g, '') || "noreply@example.com",
+                Email: process.env.MAIL_FROM!,
                 Name: "Student Manager",
               },
               To: [{ Email: to }],
