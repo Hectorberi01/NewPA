@@ -1,59 +1,97 @@
 import Mailjet from "node-mailjet";
+import nodemailer from "nodemailer";
 
 export class EmailService {
   private mailjet;
 
+  private transporter;
+
+  // constructor() {
+  //   this.mailjet = new Mailjet({
+  //     apiKey: process.env.MJ_APIKEY_PUBLIC!,
+  //     apiSecret: process.env.MJ_APIKEY_PRIVATE!,
+  //   });
+  // }
+
   constructor() {
-    this.mailjet = new Mailjet({
-      apiKey: process.env.MJ_APIKEY_PUBLIC!,
-      apiSecret: process.env.MJ_APIKEY_PRIVATE!,
+    this.transporter = nodemailer.createTransport({
+      host: "in-v3.mailjet.com",
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.MJ_APIKEY_PUBLIC!,
+        pass: process.env.MJ_APIKEY_PRIVATE!,
+      },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
     });
   }
 
+  // private async sendMail(to: string, subject: string, html: string, text?: string) {
+  //   try {
+  //     // Vérifier que les clés API sont présentes
+  //     if (!process.env.MJ_APIKEY_PUBLIC || !process.env.MJ_APIKEY_PRIVATE) {
+  //       throw new Error("Les clés API Mailjet ne sont pas configurées");
+  //     }
+
+  //     if (!process.env.MAIL_FROM) {
+  //       throw new Error("L'adresse email d'envoi n'est pas configurée");
+  //     }
+
+  //     console.log("📧 Tentative d'envoi d'email à:", to);
+  //     console.log("📧 Sujet:", subject);
+
+  //     const response = await this.mailjet
+  //       .post("send", { version: "v3.1" })
+  //       .request({
+  //         Messages: [
+  //           {
+  //             From: {
+  //               Email: process.env.MAIL_FROM!,
+  //               Name: "Student Manager",
+  //             },
+  //             To: [{ Email: to }],
+  //             Subject: subject,
+  //             TextPart: text || "",
+  //             HTMLPart: html,
+  //           },
+  //         ],
+  //       });
+
+  //     console.log("✅ Email envoyé avec succès à", to);
+  //     console.log("✅ Réponse Mailjet:", JSON.stringify(response.body, null, 2));
+  //     return response;
+
+  //   } catch (error: any) {
+  //     console.error("❌ Erreur complète d'envoi d'email:", {
+  //       message: error.message,
+  //       statusCode: error.statusCode,
+  //       errorMessage: error.ErrorMessage,
+  //       response: error.response?.text || error.response?.body,
+  //       stack: error.stack
+  //     });
+  //     throw error; // Propager l'erreur pour que l'appelant puisse la gérer
+  //   }
+  // }
+
   private async sendMail(to: string, subject: string, html: string, text?: string) {
     try {
-      // Vérifier que les clés API sont présentes
-      if (!process.env.MJ_APIKEY_PUBLIC || !process.env.MJ_APIKEY_PRIVATE) {
-        throw new Error("Les clés API Mailjet ne sont pas configurées");
-      }
-
-      if (!process.env.MAIL_FROM) {
-        throw new Error("L'adresse email d'envoi n'est pas configurée");
-      }
-
-      console.log("📧 Tentative d'envoi d'email à:", to);
-      console.log("📧 Sujet:", subject);
-
-      const response = await this.mailjet
-        .post("send", { version: "v3.1" })
-        .request({
-          Messages: [
-            {
-              From: {
-                Email: process.env.MAIL_FROM!,
-                Name: "Student Manager",
-              },
-              To: [{ Email: to }],
-              Subject: subject,
-              TextPart: text || "",
-              HTMLPart: html,
-            },
-          ],
-        });
-
-      console.log("✅ Email envoyé avec succès à", to);
-      console.log("✅ Réponse Mailjet:", JSON.stringify(response.body, null, 2));
-      return response;
-
-    } catch (error: any) {
-      console.error("❌ Erreur complète d'envoi d'email:", {
-        message: error.message,
-        statusCode: error.statusCode,
-        errorMessage: error.ErrorMessage,
-        response: error.response?.text || error.response?.body,
-        stack: error.stack
+      console.log("📧 Envoi d'email SMTP à:", to);
+      
+      const info = await this.transporter.sendMail({
+        from: `"Student Manager" <${process.env.MAIL_FROM}>`,
+        to: to,
+        subject: subject,
+        text: text || "",
+        html: html,
       });
-      throw error; // Propager l'erreur pour que l'appelant puisse la gérer
+
+      console.log("✅ Email envoyé:", info.messageId);
+      return info;
+      
+    } catch (error) {
+      console.error("❌ Erreur SMTP:", error);
+      throw error;
     }
   }
 
