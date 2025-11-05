@@ -6,12 +6,24 @@ export class EmailService {
   constructor() {
     this.mailjet = new Mailjet({
       apiKey: process.env.MJ_APIKEY_PUBLIC!,
-      apiSecret: process.env.MJ_APIKEY_PRIVATE!
+      apiSecret: process.env.MJ_APIKEY_PRIVATE!,
     });
   }
 
   private async sendMail(to: string, subject: string, html: string, text?: string) {
     try {
+      // Vérifier que les clés API sont présentes
+      if (!process.env.MJ_APIKEY_PUBLIC || !process.env.MJ_APIKEY_PRIVATE) {
+        throw new Error("Les clés API Mailjet ne sont pas configurées");
+      }
+
+      if (!process.env.MAIL_FROM) {
+        throw new Error("L'adresse email d'envoi n'est pas configurée");
+      }
+
+      console.log("📧 Tentative d'envoi d'email à:", to);
+      console.log("📧 Sujet:", subject);
+
       const response = await this.mailjet
         .post("send", { version: "v3.1" })
         .request({
@@ -28,9 +40,20 @@ export class EmailService {
             },
           ],
         });
-      console.log("✅ Email envoyé à", to, response.body);
-    } catch (error) {
-      console.error("❌ Erreur d’envoi d’email :", error);
+
+      console.log("✅ Email envoyé avec succès à", to);
+      console.log("✅ Réponse Mailjet:", JSON.stringify(response.body, null, 2));
+      return response;
+
+    } catch (error: any) {
+      console.error("❌ Erreur complète d'envoi d'email:", {
+        message: error.message,
+        statusCode: error.statusCode,
+        errorMessage: error.ErrorMessage,
+        response: error.response?.text || error.response?.body,
+        stack: error.stack
+      });
+      throw error; // Propager l'erreur pour que l'appelant puisse la gérer
     }
   }
 
