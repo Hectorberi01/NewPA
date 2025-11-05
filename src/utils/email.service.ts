@@ -1,151 +1,128 @@
-import nodemailer from 'nodemailer';
+import Mailjet from "node-mailjet";
 
 export class EmailService {
-  private transporter: nodemailer.Transporter;
+  private mailjet;
 
   constructor() {
-    this.transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'localhost',
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: false,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
+    this.mailjet = new Mailjet({
+      apiKey: process.env.SMTP_USER!,
+      apiSecret: process.env.SMTP_PASS!,
     });
   }
 
-  async sendAccountCreationEmail(email: string, firstName: string, tempPassword: string) {
-    console.log('Envoi de l\'email de création de compte à:', email);
-    const mailOptions = {
-      from: process.env.FROM_EMAIL  ,
-      to: email,
-      subject: 'Compte créé - Gestionnaire de Projets Étudiants',
-      html: `
-        <h2>Bienvenue ${firstName}!</h2>
-        <p>Votre compte étudiant a été créé.</p>
-        <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Mot de passe temporaire:</strong> ${tempPassword}</p>
-        <p>Veuillez vous connecter et changer votre mot de passe dès que possible.</p>
-        <p><a href="${process.env.FRONTEND_URL}/login">Se connecter</a></p>
-      `,
-    };
-    console.log('Envoi de l\'email de création de compte à:', mailOptions);
+  private async sendMail(to: string, subject: string, html: string, text?: string) {
+    try {
+      const response = await this.mailjet
+        .post("send", { version: "v3.1" })
+        .request({
+          Messages: [
+            {
+              From: {
+                Email: process.env.FROM_EMAIL?.replace(/['"]+/g, '') || "noreply@example.com",
+                Name: "Student Manager",
+              },
+              To: [{ Email: to }],
+              Subject: subject,
+              TextPart: text || "",
+              HTMLPart: html,
+            },
+          ],
+        });
+      console.log("✅ Email envoyé à", to, response.body);
+    } catch (error) {
+      console.error("❌ Erreur d’envoi d’email :", error);
+    }
+  }
 
-    return await this.transporter.sendMail(mailOptions);
+  async sendAccountCreationEmail(email: string, firstName: string, tempPassword: string) {
+    console.log("Envoi de l'email de création de compte à:", email);
+    const subject = "Compte créé - Gestionnaire de Projets Étudiants";
+    const html = `
+      <h2>Bienvenue ${firstName}!</h2>
+      <p>Votre compte étudiant a été créé.</p>
+      <p><strong>Email:</strong> ${email}</p>
+      <p><strong>Mot de passe temporaire:</strong> ${tempPassword}</p>
+      <p>Veuillez vous connecter et changer votre mot de passe dès que possible.</p>
+      <p><a href="${process.env.FRONTEND_URL}/login">Se connecter</a></p>
+    `;
+    await this.sendMail(email, subject, html);
   }
 
   async sendProjectNotificationEmail(email: string, projectName: string, projectDescription: string) {
-    const mailOptions = {
-      from: process.env.FROM_EMAIL || 'noreply@example.com',
-      to: email,
-      subject: `Nouveau projet disponible: ${projectName}`,
-      html: `
-        <h2>Nouveau projet: ${projectName}</h2>
-        <p>${projectDescription}</p>
-        <p><a href="${process.env.FRONTEND_URL}/projects">Voir le projet</a></p>
-      `,
-    };
-
-    return await this.transporter.sendMail(mailOptions);
+    const subject = `Nouveau projet disponible: ${projectName}`;
+    const html = `
+      <h2>Nouveau projet: ${projectName}</h2>
+      <p>${projectDescription}</p>
+      <p><a href="${process.env.FRONTEND_URL}/projects">Voir le projet</a></p>
+    `;
+    await this.sendMail(email, subject, html);
   }
 
   async sendDeliverableReminderEmail(email: string, deliverableName: string, deadline: Date) {
-    const mailOptions = {
-      from: process.env.FROM_EMAIL || 'noreply@example.com',
-      to: email,
-      subject: `Rappel: Livrable "${deliverableName}" à rendre`,
-      html: `
-        <h2>Rappel de livrable</h2>
-        <p>Le livrable "${deliverableName}" doit être rendu avant le ${deadline.toLocaleDateString('fr-FR')}.</p>
-        <p><a href="${process.env.FRONTEND_URL}/deliverables">Voir les livrables</a></p>
-      `,
-    };
-
-    return await this.transporter.sendMail(mailOptions);
+    const subject = `Rappel: Livrable "${deliverableName}" à rendre`;
+    const html = `
+      <h2>Rappel de livrable</h2>
+      <p>Le livrable "${deliverableName}" doit être rendu avant le ${deadline.toLocaleDateString("fr-FR")}.</p>
+      <p><a href="${process.env.FRONTEND_URL}/deliverables">Voir les livrables</a></p>
+    `;
+    await this.sendMail(email, subject, html);
   }
 
   async sendWelcomeEmail(email: string, firstName: string): Promise<void> {
-    const mailOptions = {
-      from: process.env.FROM_EMAIL || 'noreply@example.com',
-      to: email,
-      subject: 'Bienvenue sur la plateforme de gestion de projets étudiants',
-      html: `
-        <h2>Bienvenue ${firstName}!</h2>
-        <p>Votre compte a été créé avec succès.</p>
-        <p>Vous pouvez maintenant accéder à la plateforme et commencer à gérer vos projets étudiants.</p>
-        <p><a href="${process.env.FRONTEND_URL}/login">Se connecter</a></p>
-      `,
-    };
-
-    await this.transporter.sendMail(mailOptions);
+    const subject = "Bienvenue sur la plateforme de gestion de projets étudiants";
+    const html = `
+      <h2>Bienvenue ${firstName}!</h2>
+      <p>Votre compte a été créé avec succès.</p>
+      <p>Vous pouvez maintenant accéder à la plateforme et commencer à gérer vos projets étudiants.</p>
+      <p><a href="${process.env.FRONTEND_URL}/login">Se connecter</a></p>
+    `;
+    await this.sendMail(email, subject, html);
   }
 
   async sendPasswordChangedEmail(email: string, firstName: string): Promise<void> {
-    const mailOptions = {
-      from: process.env.FROM_EMAIL || 'noreply@example.com',
-      to: email,
-      subject: 'Mot de passe modifié',
-      html: `
-        <h2>Mot de passe modifié</h2>
-        <p>Bonjour ${firstName},</p>
-        <p>Votre mot de passe a été modifié avec succès.</p>
-        <p>Si vous n'êtes pas à l'origine de cette modification, contactez immédiatement l'administrateur.</p>
-      `,
-    };
-
-    await this.transporter.sendMail(mailOptions);
+    const subject = "Mot de passe modifié";
+    const html = `
+      <h2>Mot de passe modifié</h2>
+      <p>Bonjour ${firstName},</p>
+      <p>Votre mot de passe a été modifié avec succès.</p>
+      <p>Si vous n'êtes pas à l'origine de cette modification, contactez immédiatement l'administrateur.</p>
+    `;
+    await this.sendMail(email, subject, html);
   }
 
   async sendPasswordResetEmail(email: string, firstName: string, resetToken: string): Promise<void> {
-    const mailOptions = {
-      from: process.env.FROM_EMAIL || 'noreply@example.com',
-      to: email,
-      subject: 'Réinitialisation de mot de passe',
-      html: `
-        <h2>Réinitialisation de mot de passe</h2>
-        <p>Bonjour ${firstName},</p>
-        <p>Vous avez demandé une réinitialisation de votre mot de passe.</p>
-        <p>Cliquez sur le lien suivant pour définir un nouveau mot de passe :</p>
-        <p><a href="${process.env.FRONTEND_URL}/reset-password?token=${resetToken}">Réinitialiser mon mot de passe</a></p>
-        <p>Ce lien expirera dans 1 heure.</p>
-        <p>Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.</p>
-      `,
-    };
-
-    await this.transporter.sendMail(mailOptions);
+    const subject = "Réinitialisation de mot de passe";
+    const html = `
+      <h2>Réinitialisation de mot de passe</h2>
+      <p>Bonjour ${firstName},</p>
+      <p>Vous avez demandé une réinitialisation de votre mot de passe.</p>
+      <p>Cliquez sur le lien suivant pour définir un nouveau mot de passe :</p>
+      <p><a href="${process.env.FRONTEND_URL}/reset-password?token=${resetToken}">Réinitialiser mon mot de passe</a></p>
+      <p>Ce lien expirera dans 1 heure.</p>
+      <p>Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.</p>
+    `;
+    await this.sendMail(email, subject, html);
   }
 
   async sendPasswordResetConfirmationEmail(email: string, firstName: string): Promise<void> {
-    const mailOptions = {
-      from: process.env.FROM_EMAIL || 'noreply@example.com',
-      to: email,
-      subject: 'Mot de passe réinitialisé',
-      html: `
-        <h2>Mot de passe réinitialisé</h2>
-        <p>Bonjour ${firstName},</p>
-        <p>Votre mot de passe a été réinitialisé avec succès.</p>
-        <p>Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.</p>
-        <p><a href="${process.env.FRONTEND_URL}/login">Se connecter</a></p>
-      `,
-    };
-
-    await this.transporter.sendMail(mailOptions);
+    const subject = "Mot de passe réinitialisé";
+    const html = `
+      <h2>Mot de passe réinitialisé</h2>
+      <p>Bonjour ${firstName},</p>
+      <p>Votre mot de passe a été réinitialisé avec succès.</p>
+      <p>Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.</p>
+      <p><a href="${process.env.FRONTEND_URL}/login">Se connecter</a></p>
+    `;
+    await this.sendMail(email, subject, html);
   }
 
-
-async sendProjectVisibleEmail(to: string, firstName: string, projectName: string) {
-      const mailOptions = {
-      from: process.env.FROM_EMAIL || 'noreply@example.com',
-      to: to,
-      subject: "Nouveau projet disponible",
-      html: `     
-    <p>Bonjour ${firstName || 'étudiant'},</p>
-    <p>Un nouveau projet <b>${projectName}</b> est désormais disponible dans votre espace étudiant.</p>
-    <p>Connectez-vous pour le consulter.</p>`,
-    };
-      await this.transporter.sendMail(mailOptions);
-
-}
-
+  async sendProjectVisibleEmail(to: string, firstName: string, projectName: string) {
+    const subject = "Nouveau projet disponible";
+    const html = `
+      <p>Bonjour ${firstName || "étudiant"},</p>
+      <p>Un nouveau projet <b>${projectName}</b> est désormais disponible dans votre espace étudiant.</p>
+      <p>Connectez-vous pour le consulter.</p>
+    `;
+    await this.sendMail(to, subject, html);
+  }
 }
