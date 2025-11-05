@@ -294,7 +294,7 @@ async getGradingSessionByGridAndGroup(gridId: number, groupId: number): Promise<
     });
   }
 
-  // Récupérer les notes d'un projet
+
   async getGradesByProject(projectId: number): Promise<Grade[]> {
     return await this.gradeRepository.find({
       where: { gradingGrid: { project: { id: projectId } } },
@@ -305,11 +305,11 @@ async getGradingSessionByGridAndGroup(gridId: number, groupId: number): Promise<
         'criterionGrades', 
         'criterionGrades.criterion'
       ],
-      //order: { 'group.name': 'ASC', 'gradingGrid.name': 'ASC' }
+     
     });
   }
 
-  // Récupérer une note par son ID
+
   async getGradeById(gradeId: number): Promise<Grade | null> {
     return await this.gradeRepository.findOne({
       where: { id: gradeId },

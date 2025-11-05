@@ -114,8 +114,6 @@ router.put(
   gradingController.createOrUpdateGradingSession.bind(gradingController)
 );
 
-
-// Dans grading.routes.ts - AJOUTEZ CETTE ROUTE
 router.get(
   '/sessions/project/:projectId',
   authMiddleware,
@@ -130,29 +128,3 @@ router.put(
 export default router;
 
 
-/*POST   /api/grading/grids
-GET    /api/grading/projects/:projectId/grids?deliverableId=X
-PUT    /api/grading/grids/:gridId
-DELETE /api/grading/grids/:gridId
-
-// Critères
-POST   /api/grading/grids/:gridId/criteria
-PUT    /api/grading/criteria/:criterionId
-DELETE /api/grading/criteria/:criterionId
-
-// Sessions de notation
-POST   /api/grading/sessions
-PUT    /api/grading/sessions/:sessionId
-GET    /api/grading/deliverables/:deliverableId/sessions
-GET    /api/grading/reports/:reportId/groups/:groupId/session
-GET    /api/grading/reports/:reportId/grid
-
-// Pondération et synthèse
-GET    /api/grading/projects/:projectId/summary
-PUT    /api/grading/projects/:projectId/weights7771
-
-+.=
-==+
-+
-
-+*/

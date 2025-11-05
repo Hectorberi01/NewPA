@@ -56,18 +56,18 @@ async addStudentsToPromotion(promotionId: number, studentsListe: StudentData[]):
   console.log('Liste des étudiants à ajouter:', studentsListe);
   
   for (const data of studentsListe) {
-    // CORRECTION: Rechercher avec les bonnes relations si nécessaire
+    
     let student = await this.userRepository.findOne({ 
       where: { email: data.email },
       relations: ['studentPromotions'] // Ajouter si nécessaire
     });
 
     if (!student) {
-      const tempPassword = PasswordService.generateTemporaryPassword();
+      const tempPassword = "ESGI12345"; //PasswordService.generateTemporaryPassword();
       console.log('Temporary password generated:', tempPassword);
       const hashedPassword = await PasswordService.hashPassword(tempPassword);
       
-      // CORRECTION: S'assurer que les champs correspondent
+   
       student = this.userRepository.create({
         email: data.email,
         firstName: data.firstName || data.prenom, // Gérer les deux formats
@@ -79,11 +79,11 @@ async addStudentsToPromotion(promotionId: number, studentsListe: StudentData[]):
       
       student = await this.userRepository.save(student);
       
-      // CORRECTION: Utiliser le service d'email correct
+   
       this.sendWelcomeEmailAsync(student, tempPassword);
     }
 
-    // CORRECTION: Vérifier si l'étudiant est déjà dans la promotion
+
     const isAlreadyInPromotion = promotion.students.some(s => s.id === student.id);
     if (!isAlreadyInPromotion) {
       newStudents.push(student);

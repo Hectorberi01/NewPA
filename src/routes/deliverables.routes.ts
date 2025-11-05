@@ -7,7 +7,7 @@ import { uploadMiddleware } from '../middleware/upload.middleware';
 const router = Router();
 const deliverableController = new DeliverableController();
 
-// Routes pour les enseignants
+
 router.post('/', authMiddleware, requireTeacher, validateCreateDeliverable, 
   deliverableController.createDeliverable.bind(deliverableController));
 router.put('/:id', authMiddleware, requireTeacher, validateCreateDeliverable, 
@@ -27,15 +27,15 @@ router.get('/submissions/:id/download', authMiddleware,requireTeacher,
   deliverableController.download.bind(deliverableController));
 
 
-// Routes pour les étudiants
+
 router.post('/:id/submit', authMiddleware, uploadMiddleware.single('file'), 
   deliverableController.submitDeliverable.bind(deliverableController));
 
-// Routes combinées dans les projets
+
 router.get('/projects/:projectId/deliverables', authMiddleware, 
   deliverableController.getProjectDeliverables.bind(deliverableController));
 
-// Ajouter dans le router, après les autres routes
+
 router.post('/:id/validate', authMiddleware, uploadMiddleware.single('file'), 
   deliverableController.validateDeliverable.bind(deliverableController));
 

@@ -21,7 +21,7 @@ export interface ExtractionService {
 
 const ALLOWED_EXT = new Set([
   ".txt", ".js", ".ts", ".java", ".py", ".cpp", ".pdf", ".docx", ".xlsx",
-  // tu peux en ajouter
+ 
 ]);
 
 const EXT_LANG: Record<string, string> = {
@@ -110,7 +110,6 @@ export class ExtractionServiceImpl implements ExtractionService {
   private async extractOneFile(absolutePath: string, submissionId: number, relName: string): Promise<ExtractedFile> {
     const ext = path.extname(absolutePath).toLowerCase();
     if (!ALLOWED_EXT.has(ext)) {
-      // Si tu veux : lève une erreur, ou renvoie vide
       throw new Error(`Extension non supportée: ${ext}`);
     }
 

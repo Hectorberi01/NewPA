@@ -143,28 +143,124 @@ async validateDeliverableBeforeSubmit(
     rules: [] as any[]
   };
 
-  // Simulation de validation - à adapter selon vos règles
   if (deliverable.type === 'archive' && file) {
-    // Valider la taille du fichier
-    const maxSizeMB = 10; // Récupérer depuis les règles
-    if (file.size > maxSizeMB * 1024 * 1024) {
+    for (const rule of deliverable.validationRules) {
+      let passed = true;
+      let message = rule.errorMessage || 'Règle non respectée';
+
+      switch (rule.type) {
+        case 'max_size': {
+          let maxSizeMB: number;
+          
+          try {
+            const config = JSON.parse(rule.configuration);
+            maxSizeMB = parseFloat(config.maxSizeMB || config);
+          } catch {
+            const match = rule.configuration.match(/(\d+(?:\.\d+)?)/);
+            maxSizeMB = match ? parseFloat(match[1]) : NaN;
+          }
+          
+          if (isNaN(maxSizeMB)) {
+            passed = false;
+            message = 'Configuration invalide pour la taille maximale';
+          } else if (file.size > maxSizeMB * 1024 * 1024) {
+            passed = false;
+            message = rule.errorMessage || `Fichier trop volumineux. Maximum: ${maxSizeMB}MB`;
+          } else {
+            message = `Taille du fichier valide (${(file.size / (1024 * 1024)).toFixed(2)}MB / ${maxSizeMB}MB)`;
+          }
+          break;
+        }
+
+
+        case 'file_presence': {
+          if (!file) {
+            passed = false;
+            message = 'Aucun fichier fourni';
+          } else {
+            try {
+              const config = JSON.parse(rule.configuration);
+              const result = await FileValidationService.validateFilePresence(
+                file.path,
+                config.requiredFiles || []
+              );
+              passed = result.valid;
+              message = passed 
+                ? 'Tous les fichiers requis sont présents' 
+                : rule.errorMessage || result.error || 'Fichiers manquants';
+            } catch (error) {
+              passed = false;
+              message = 'Erreur lors de la validation des fichiers';
+            }
+          }
+          break;
+        }
+
+        case 'folder_structure': {
+          if (!file) {
+            passed = false;
+            message = 'Aucun fichier fourni';
+          } else {
+            try {
+              const config = JSON.parse(rule.configuration);
+              const result = await FileValidationService.validateFolderStructure(
+                file.path,
+                config.expectedStructure || []
+              );
+              passed = result.valid;
+              message = passed 
+                ? 'Structure de dossiers valide' 
+                : rule.errorMessage || result.error || 'Structure invalide';
+            } catch (error) {
+              passed = false;
+              message = 'Erreur lors de la validation de la structure';
+            }
+          }
+          break;
+        }
+
+        case 'file_content': {
+          if (!file) {
+            passed = false;
+            message = 'Aucun fichier fourni';
+          } else {
+            try {
+              const config = JSON.parse(rule.configuration);
+              const result = await FileValidationService.validateFileContent(
+                file.path,
+                config.fileName,
+                config.contentRegex
+              );
+              passed = result.valid;
+              message = passed 
+                ? 'Contenu du fichier valide' 
+                : rule.errorMessage || result.error || 'Contenu invalide';
+            } catch (error) {
+              passed = false;
+              message = 'Erreur lors de la validation du contenu';
+            }
+          }
+          break;
+        }
+
+        default:
+          passed = true;
+          message = 'Règle non reconnue (ignorée)';
+          break;
+      }
+
       validationResults.rules.push({
-        type: 'max_size',
-        passed: false,
-        message: `Fichier trop volumineux. Maximum: ${maxSizeMB}MB`
+        type: rule.type,
+        passed,
+        message
       });
-      validationResults.allPassed = false;
-    } else {
-      validationResults.rules.push({
-        type: 'max_size',
-        passed: true,
-        message: 'Taille du fichier valide'
-      });
+
+      if (!passed) validationResults.allPassed = false;
     }
   }
 
+  // Validation pour les liens Git
   if (deliverable.type === 'git_link' && gitUrl) {
-    // Valider l'URL Git
     const gitUrlRegex = /^(https?:\/\/)?(www\.)?github\.com\/[a-zA-Z0-9-]+\/[a-zA-Z0-9-_.]+$/;
     if (!gitUrlRegex.test(gitUrl)) {
       validationResults.rules.push({
@@ -191,29 +287,57 @@ async validateDeliverableBeforeSubmit(
       order: { deadline: 'ASC' }
     });
   }
-  async analyzeSimilarity(deliverableId: number): Promise<any> {
-    // 1) Récupère les soumissions
+async analyzeSimilarity(deliverableId: number): Promise<any> {
+  try {
     const submissions = await this.submissionRepository.find({
       where: { deliverable: { id: deliverableId } },
       relations: ['group']
     });
 
-    if (!submissions.length) return [];
+    console.log(`[analyzeSimilarity] Found ${submissions.length} submissions`);
 
-    // 2) Lance le pipeline anti-cheat pour chaque soumission (extraction → fingerprints → candidats → compare → aggregate)
+    if (!submissions.length) {
+      return { 
+        matches: [], 
+        aggregates: [],
+        message: 'Aucune soumission trouvée'
+      };
+    }
+
     const anti = new AntiCheatService(AppDataSource);
+    const processResults = [];
+    
     for (const s of submissions) {
       if (s.filePath) {
-        await anti.onSubmissionImported(s.id, s.filePath);
+        try {
+          console.log(`[analyzeSimilarity] Processing submission ${s.id}: ${s.filePath}`);
+          const result = await anti.onSubmissionImported(s.id, s.filePath);
+          processResults.push({ submissionId: s.id, success: true, result });
+        } catch (error: any) {
+          console.error(`[analyzeSimilarity] Error processing submission ${s.id}:`, error.message);
+          processResults.push({ 
+            submissionId: s.id, 
+            success: false, 
+            error: error.message 
+          });
+        }
+      } else {
+        console.warn(`[analyzeSimilarity] Submission ${s.id} has no file`);
       }
     }
 
     const agg = new AggregatorService(AppDataSource);
     const topPerSubmission = await Promise.all(
-      submissions.map(s => agg.findTopMatches(s.id, 10))
+      submissions.map(async (s) => {
+        try {
+          return await agg.findTopMatches(s.id, 10);
+        } catch (error) {
+          console.error(`[analyzeSimilarity] Error finding matches for ${s.id}:`, error);
+          return [];
+        }
+      })
     );
 
-    // Optionnel : renvoie aussi les agrégats mis à jour présents sur DeliverableSubmission
     const withAggregates = await this.submissionRepository.find({
       where: { deliverable: { id: deliverableId } },
       select: ['id', 'textScore', 'astScore', 'similarityScore']
@@ -221,12 +345,21 @@ async validateDeliverableBeforeSubmit(
 
     return {
       matches: topPerSubmission.flat(),
-      aggregates: withAggregates
+      aggregates: withAggregates,
+      processResults, // Pour déboguer
+      summary: {
+        totalSubmissions: submissions.length,
+        processed: processResults.filter(r => r.success).length,
+        failed: processResults.filter(r => !r.success).length
+      }
     };
+
+  } catch (error: any) {
+    console.error('[analyzeSimilarity] Global error:', error);
+    throw new Error(`Analyse de similarité échouée: ${error.message}`);
   }
-  // Dans DeliverableService.ts - Ajoutez cette méthode
+}
 async getGroupSubmission(deliverableId: number, groupId: number): Promise<DeliverableSubmission | null> {
-  // Validation des IDs
   if (isNaN(deliverableId) || isNaN(groupId) || deliverableId <= 0 || groupId <= 0) {
     throw new Error('Invalid deliverable or group ID');
   }

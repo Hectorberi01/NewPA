@@ -12,7 +12,11 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  const allowedTypes = ['.zip', '.rar', '.tar', '.gz', '.7z', '.csv', '.xlsx', '.xls', '.json'];
+  
+  
+  
+  const allowedTypes = ['.zip', '.rar', '.tar', '.gz', '.7z', '.csv', '.xlsx', '.xls', '.json', '.pdf', '.docx', 
+    '.doc', '.pptx', '.ppt', '.txt', '.md', '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg'];
   const ext = path.extname(file.originalname).toLowerCase();
   
   if (allowedTypes.includes(ext)) {
@@ -26,6 +30,6 @@ export const uploadMiddleware = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 50 * 1024 * 1024 // 50MB max
+    fileSize: 150 * 1024 * 1024 // 50MB max
   }
 });

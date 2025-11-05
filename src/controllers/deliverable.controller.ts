@@ -309,7 +309,7 @@ async validateDeliverable(req: Request, res: Response): Promise<void> {
       const results = await this.deliverableService.analyzeSimilarity(deliverableId);
       res.json(results);
     } catch (error) {
-      res.status(500).json({ error: 'Internal Server Error' });
+      res.status(500).json({ error: error.message || 'Internal Server Error' });
     }
   }
 
