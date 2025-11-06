@@ -18,7 +18,6 @@ dotenv.config();
 const PORT = Number(process.env.PORT) || 3000;
 const app = express();
 
-// ===== CORS - DOIT ÊTRE EN PREMIER =====
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -27,7 +26,6 @@ app.use(cors({
   optionsSuccessStatus: 200
 }));
 
-// ===== HELMET avec configuration Swagger-friendly =====
 app.use(helmet({
   crossOriginEmbedderPolicy: false,
   crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -41,14 +39,12 @@ app.use(helmet({
   },
 }));
 
-// ===== MIDDLEWARE POUR DÉTECTER HTTPS =====
 const isHttps = (req: express.Request) => {
   return req.secure || 
          req.headers['x-forwarded-proto'] === 'https' ||
          req.headers['x-forwarded-ssl'] === 'on';
 };
 
-// ===== COOP HEADER =====
 app.use((req, res, next) => {
   if (isHttps(req)) {
     res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
@@ -56,11 +52,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// ===== BODY PARSERS =====
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// ===== SESSION =====
 app.use(session({
   secret: process.env.SESSION_SECRET || "dev-secret-change-in-production",
   resave: false,
