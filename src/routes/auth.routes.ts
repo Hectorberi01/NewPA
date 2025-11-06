@@ -61,7 +61,7 @@ router.get('/google',
 
 router.get('/google/callback',
   passport.authenticate('google', {
-    failureRedirect: `https://${FRONTEND_URL}/login?error=auth_failed`,
+    failureRedirect: `${FRONTEND_URL}/login?error=auth_failed`,
     session: false // Désactiver la session car on utilise JWT
   }),
 
@@ -81,10 +81,10 @@ router.get('/google/callback',
       const encodedData = Buffer.from(JSON.stringify(authResponse)).toString('base64');
 
       // Rediriger vers le frontend avec les tokens
-      res.redirect(`https://${FRONTEND_URL}/auth/callback?data=${encodedData}`);
+      res.redirect(`${FRONTEND_URL}/auth/callback?data=${encodedData}`);
     } catch (error) {
       console.error('Error in callback:', error);
-      res.redirect(`https://${FRONTEND_URL}/login?error=server_error`);
+      res.redirect(`${FRONTEND_URL}/login?error=server_error`);
     }
   }
 );
