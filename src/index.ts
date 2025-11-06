@@ -6,6 +6,7 @@ import { setupSwagger } from "./config/swagger";
 import promotionRoutes from "./routes/promotions.routes";
 import projectRoutes from "./routes/projects.routes";
 import { r } from "@faker-js/faker/dist/airline-CLphikKp";
+import { configurePassport } from "./config/passport";
 
 
 
@@ -16,6 +17,7 @@ const PORT = process.env.PROMOTION_PORT || 3000;
 const main = async () => {
 
     try {
+        configurePassport();
         await AppDataSource.initialize();
         console.log('Database connection established');
 
