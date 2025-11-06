@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.compareAgainstCandidates = void 0;
+exports.compareAgainstCandidates = compareAgainstCandidates;
 const similarity_engine_1 = require("./similarity.engine");
 async function compareAgainstCandidates(ds, submissionId, candidateIds, opts) {
     const engine = new similarity_engine_1.SimilarityEngine(ds, opts);
@@ -15,4 +15,3 @@ async function compareAgainstCandidates(ds, submissionId, candidateIds, opts) {
     all.sort((a, b) => b.finalScore - a.finalScore);
     return all;
 }
-exports.compareAgainstCandidates = compareAgainstCandidates;

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ensureDatabase = void 0;
+exports.ensureDatabase = ensureDatabase;
 // src/bootstrap/ensure-database.ts
 const promise_1 = require("mysql2/promise");
 const dotenv_1 = require("dotenv");
@@ -16,4 +16,3 @@ async function ensureDatabase() {
     await pool.query(`CREATE DATABASE IF NOT EXISTS \`${db}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
     await pool.end();
 }
-exports.ensureDatabase = ensureDatabase;

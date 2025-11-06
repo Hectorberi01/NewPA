@@ -3,7 +3,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.validateCSVData = exports.parseCSV = void 0;
+exports.parseCSV = parseCSV;
+exports.validateCSVData = validateCSVData;
 const stream_1 = require("stream");
 const csv_parser_1 = __importDefault(require("csv-parser"));
 async function parseCSV(file) {
@@ -17,10 +18,8 @@ async function parseCSV(file) {
             .on("error", reject);
     });
 }
-exports.parseCSV = parseCSV;
 function validateCSVData(data) {
     // Implement validation logic here
     // For example, check if required fields are present
     return data.every(row => row.name && row.startYear && row.endYear);
 }
-exports.validateCSVData = validateCSVData;

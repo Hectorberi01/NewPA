@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.compareAndAggregate = void 0;
+exports.compareAndAggregate = compareAndAggregate;
 const compare_candidates_pipeline_1 = require("./compare-candidates.pipeline");
 const aggregator_service_1 = require("../aggregator/aggregator.service");
 async function compareAndAggregate(ds, submissionId, candidateIds, engineOpts = { fusion: 'max', alpha: 0.6, minHashes: 5, minScorePerKind: 0.02 }, aggOpts = { threshold: 0.6, topPerPair: 3 }) {
@@ -13,4 +13,3 @@ async function compareAndAggregate(ds, submissionId, candidateIds, engineOpts = 
     const topMatches = await agg.findTopMatches(submissionId, 10);
     return { savedResults, aggregates, topMatches };
 }
-exports.compareAndAggregate = compareAndAggregate;

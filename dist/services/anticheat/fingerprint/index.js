@@ -14,7 +14,8 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.buildFingerprints = exports.defaultFingerprintServices = void 0;
+exports.defaultFingerprintServices = defaultFingerprintServices;
+exports.buildFingerprints = buildFingerprints;
 __exportStar(require("./fingerprint.types"), exports);
 __exportStar(require("./text-fingerprint.service"), exports);
 __exportStar(require("./ast-fingerprint.service"), exports);
@@ -25,7 +26,6 @@ const java_ast_fingerprint_service_1 = require("./java-ast-fingerprint.service")
 function defaultFingerprintServices() {
     return [new text_fingerprint_service_1.TextFingerprintService(5), new ast_fingerprint_service_1.AstFingerprintService(7), new java_ast_fingerprint_service_1.JavaAstFingerprintService(7)]; // k par défaut
 }
-exports.defaultFingerprintServices = defaultFingerprintServices;
 async function buildFingerprints(files, services = defaultFingerprintServices()) {
     const out = [];
     for (const f of files) {
@@ -39,4 +39,3 @@ async function buildFingerprints(files, services = defaultFingerprintServices())
     }
     return out;
 }
-exports.buildFingerprints = buildFingerprints;

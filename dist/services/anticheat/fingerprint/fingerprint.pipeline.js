@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateAndSaveFingerprints = void 0;
+exports.generateAndSaveFingerprints = generateAndSaveFingerprints;
 const extraction_service_1 = require("../extraction/extraction.service");
 const index_1 = require("./index");
 const candidates_pipeline_1 = require("../candidates/candidates.pipeline");
@@ -34,4 +34,3 @@ async function generateAndSaveFingerprints(ds, submissionId, archivePath) {
     );
     return { saved: fps.length, candidates, similarity };
 }
-exports.generateAndSaveFingerprints = generateAndSaveFingerprints;
