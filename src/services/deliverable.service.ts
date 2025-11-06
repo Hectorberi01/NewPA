@@ -452,38 +452,38 @@ async getGroupSubmission(deliverableId: number, groupId: number): Promise<Delive
     await Promise.allSettled(emailPromises);
   }
 
-  async downloadSubmission(submissionId: number): Promise<{ filePath: string, filename: string }> {
-    const submission = await this.submissionRepository.findOne({
-      where: { id: submissionId },
-      relations: ['deliverable', 'group', 'group.members'],
-    });
+  // async downloadSubmission(submissionId: number): Promise<{ filePath: string, filename: string }> {
+  //   const submission = await this.submissionRepository.findOne({
+  //     where: { id: submissionId },
+  //     relations: ['deliverable', 'group', 'group.members'],
+  //   });
 
-    if (!submission) throw new Error('Submission not found');
-    if (!submission.filePath) throw new Error('No file associated with this submission');
+  //   if (!submission) throw new Error('Submission not found');
+  //   if (!submission.filePath) throw new Error('No file associated with this submission');
 
-    const UPLOAD_DIR = path.resolve(process.cwd(), "uploads");
-    const filenameOnDisk = path.basename(submission.filePath);
-    const fullPath = path.join(UPLOAD_DIR, filenameOnDisk);
+  //   const UPLOAD_DIR = path.resolve(process.cwd(), "uploads");
+  //   const filenameOnDisk = path.basename(submission.filePath);
+  //   const fullPath = path.join(UPLOAD_DIR, filenameOnDisk);
 
-    // Vérifie que le fichier est bien dans le dossier uploads
-    const resolved = path.resolve(fullPath);
-    if (!resolved.startsWith(UPLOAD_DIR)) {
-      throw new Error("Invalid file path");
-    }
+  //   // Vérifie que le fichier est bien dans le dossier uploads
+  //   const resolved = path.resolve(fullPath);
+  //   if (!resolved.startsWith(UPLOAD_DIR)) {
+  //     throw new Error("Invalid file path");
+  //   }
 
-    // Vérifier existence
-    try {
-      const st = await fs.stat(resolved);
-      if (!st.isFile()) throw new Error("File not found");
-    } catch (err) {
-      throw new Error("File not found");
-    }
+  //   // Vérifier existence
+  //   try {
+  //     const st = await fs.stat(resolved);
+  //     if (!st.isFile()) throw new Error("File not found");
+  //   } catch (err) {
+  //     throw new Error("File not found");
+  //   }
 
-    // Nom de téléchargement : si tu stockes originalName dans la DB, utilise-le, sinon basename
-    const downloadName = filenameOnDisk;
+  //   // Nom de téléchargement : si tu stockes originalName dans la DB, utilise-le, sinon basename
+  //   const downloadName = filenameOnDisk;
 
-    return { filePath: resolved, filename: downloadName };
-  }
+  //   return { filePath: resolved, filename: downloadName };
+  // }
 
 
   private async validateSubmission(
@@ -550,5 +550,22 @@ async getGroupSubmission(deliverableId: number, groupId: number): Promise<Delive
     }
 
     return results;
+  }
+
+  async downloadSubmission(submissionId: number) {
+    const submission = await this.submissionRepository.findOne({
+      where: { id: submissionId },
+    });
+    if (!submission || !submission.filePath)
+      throw new Error("No file associated with this submission");
+
+    // Extraire le nom de fichier et le "key" S3
+    const filePath = submission.filePath;
+    const bucketName = process.env.AWS_S3_BUCKET!;
+    const key = decodeURIComponent(
+      new URL(filePath).pathname.replace(`/${bucketName}/`, "")
+    );
+
+    return { bucketName, key };
   }
 }

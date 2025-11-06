@@ -1,6 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { DeliverableService } from '../services/deliverable.service';
 import { uploadMiddleware } from '../middleware/upload.middleware';
+import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { s3Client } from "../config/aws.config";
+import { Readable } from 'stream';
 
 export class DeliverableController {
   private deliverableService: DeliverableService;
@@ -215,7 +218,9 @@ async validateDeliverable(req: Request, res: Response): Promise<void> {
       let submissionData: any = { gitUrl };
       
       if (req.file) {
-        submissionData.filePath = req.file.path;
+        //submissionData.filePath = req.file.path;
+        submissionData.fileUrl = (req.file as any).location;
+        submissionData.fileKey = (req.file as any).key;
       }
 
       const submission = await this.deliverableService.submitDeliverable(
@@ -409,34 +414,62 @@ async validateDeliverable(req: Request, res: Response): Promise<void> {
   async download(req: Request, res: Response, next: NextFunction) {
     try {
       const submissionId = Number(req.params.id);
-      if (!Number.isFinite(submissionId)) return res.status(400).json({ message: "Invalid id" });
+      if (!Number.isFinite(submissionId)) {
+        return res.status(400).json({ message: "Invalid id" });
+      }
 
-      const { filePath, filename } =  await this.deliverableService.downloadSubmission(submissionId);
+      const { bucketName, key } = await this.deliverableService.downloadSubmission(submissionId);
 
-      // Option A: utiliser res.download (set Content-Type, Content-Disposition automatiquement)
-      return res.download(filePath, filename, (err) => {
-        if (err) {
-          console.error("Error sending file:", err);
-          if (!res.headersSent) res.status(500).json({ message: "Error sending file" });
-        }
+      const command = new GetObjectCommand({
+        Bucket: bucketName,
+        Key: key,
       });
 
-      // Option B: stream manuel (décommenter si tu préfères)
-      /*
-      res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(filename)}"`);
-      const stream = fs.createReadStream(filePath);
+      const data = await s3Client.send(command);
+
+      // Définir les bons headers
+      res.setHeader("Content-Type", data.ContentType || "application/octet-stream");
+      res.setHeader("Content-Disposition", `attachment; filename="${key.split("/").pop()}"`);
+
+      // Stream du contenu S3 vers la réponse HTTP
+      const stream = data.Body as Readable;
       stream.pipe(res);
-      stream.on("error", (e) => {
-        console.error(e);
-        if (!res.headersSent) res.status(500).end();
-      });
-      */
-    } catch (err: any) {
-      if (err.message === "Submission not found") return res.status(404).json({ message: err.message });
-      if (err.message === "No file associated with this submission") return res.status(404).json({ message: err.message });
-      if (err.message === "File not found") return res.status(404).json({ message: "File not found on disk" });
-      next(err);
+    } catch (error) {
+      console.error("Error downloading file:", error);
+      res.status(500).json({ message: "Error downloading file" });
     }
   }
+  // async download(req: Request, res: Response, next: NextFunction) {
+  //   try {
+  //     const submissionId = Number(req.params.id);
+  //     if (!Number.isFinite(submissionId)) return res.status(400).json({ message: "Invalid id" });
+
+  //     const { filePath, filename } =  await this.deliverableService.downloadSubmission(submissionId);
+
+  //     // Option A: utiliser res.download (set Content-Type, Content-Disposition automatiquement)
+  //     return res.download(filePath, filename, (err) => {
+  //       if (err) {
+  //         console.error("Error sending file:", err);
+  //         if (!res.headersSent) res.status(500).json({ message: "Error sending file" });
+  //       }
+  //     });
+
+  //     // Option B: stream manuel (décommenter si tu préfères)
+  //     /*
+  //     res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(filename)}"`);
+  //     const stream = fs.createReadStream(filePath);
+  //     stream.pipe(res);
+  //     stream.on("error", (e) => {
+  //       console.error(e);
+  //       if (!res.headersSent) res.status(500).end();
+  //     });
+  //     */
+  //   } catch (err: any) {
+  //     if (err.message === "Submission not found") return res.status(404).json({ message: err.message });
+  //     if (err.message === "No file associated with this submission") return res.status(404).json({ message: err.message });
+  //     if (err.message === "File not found") return res.status(404).json({ message: "File not found on disk" });
+  //     next(err);
+  //   }
+  // }
   
 }
