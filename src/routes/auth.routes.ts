@@ -51,14 +51,15 @@ router.post('/refresh', validateRefreshToken,
 router.post('/oauth/microsoft', validateOAuthToken, 
   authController.microsoftOAuth.bind(authController));
 
-router.get('/google', 
-  passport.authenticate('google', { 
+router.get(
+  '/google',
+  passport.authenticate('google', {
     scope: ['profile', 'email'],
     accessType: 'offline',
-    prompt: 'consent'
-  })
+    prompt: 'consent',
+    callbackURL: process.env.GOOGLE_CALLBACK_URL,
+  } as any)
 );
-
 router.get('/google/callback',
   passport.authenticate('google', {
     failureRedirect: `https://student-project-manager.onrender.com/login?error=auth_failed`,
