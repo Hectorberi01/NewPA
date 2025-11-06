@@ -1,11 +1,10 @@
 import 'reflect-metadata';
-import dotenv from 'dotenv';
 import http from 'http';
 import fs from 'fs';
 import { AppDataSource } from './database/data-source';
 import app from './app';
 import { configurePassport } from './config/passport';
-
+import * as dotenv from 'dotenv';
 dotenv.config();
 
 // Ensure PORT is a number to match the http.Server.listen overloads
