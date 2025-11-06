@@ -553,19 +553,21 @@ async getGroupSubmission(deliverableId: number, groupId: number): Promise<Delive
   }
 
   async downloadSubmission(submissionId: number) {
-    const submission = await this.submissionRepository.findOne({
-      where: { id: submissionId },
-    });
-    if (!submission || !submission.filePath)
-      throw new Error("No file associated with this submission");
+  const submission = await this.submissionRepository.findOne({
+    where: { id: submissionId },
+  });
+  if (!submission || !submission.filePath)
+    throw new Error("No file associated with this submission");
 
-    // Extraire le nom de fichier et le "key" S3
-    const filePath = submission.filePath;
-    const bucketName = process.env.AWS_S3_BUCKET!;
-    const key = decodeURIComponent(
-      new URL(filePath).pathname.replace(`/${bucketName}/`, "")
-    );
+  const fileUrl = submission.filePath;
+  const bucketName = process.env.AWS_S3_BUCKET!;
 
-    return { bucketName, key };
-  }
+  // ✅ Corrigé : retire le "/" initial si présent
+  const pathname = new URL(fileUrl).pathname;
+  const key = decodeURIComponent(pathname.replace(/^\/+/, "").replace(`${bucketName}/`, ""));
+
+  console.log("✅ S3 key used:", key);
+  return { bucketName, key };
+}
+
 }
