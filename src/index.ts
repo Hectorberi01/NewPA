@@ -17,10 +17,10 @@ const PORT = process.env.PROMOTION_PORT || 3000;
 const main = async () => {
 
     try {
-        configurePassport();
+        
         await AppDataSource.initialize();
         console.log('Database connection established');
-
+        configurePassport();
         // 2. Middleware
         app.use(cors());
         app.use(express.json());
