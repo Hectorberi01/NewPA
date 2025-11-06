@@ -7,7 +7,8 @@ import promotionRoutes from "./routes/promotions.routes";
 import projectRoutes from "./routes/projects.routes";
 import { r } from "@faker-js/faker/dist/airline-CLphikKp";
 import { configurePassport } from "./config/passport";
-
+import * as dotenv from 'dotenv';
+dotenv.config();
 
 
 const app  = express()
@@ -20,6 +21,9 @@ const main = async () => {
         
         await AppDataSource.initialize();
         console.log('Database connection established');
+        console.log('🔍 GOOGLE_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID ? '✅ Défini' : '❌ Manquant');
+        console.log('🔍 GOOGLE_CLIENT_SECRET:', process.env.GOOGLE_CLIENT_SECRET ? '✅ Défini' : '❌ Manquant');
+        console.log('🔍 GOOGLE_CALLBACK_URL:', process.env.GOOGLE_CALLBACK_URL);
         configurePassport();
         // 2. Middleware
         app.use(cors());

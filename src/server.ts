@@ -4,6 +4,7 @@ import http from 'http';
 import fs from 'fs';
 import { AppDataSource } from './database/data-source';
 import app from './app';
+import { configurePassport } from './config/passport';
 
 dotenv.config();
 
@@ -16,6 +17,12 @@ async function startServer() {
   try {
     await AppDataSource.initialize();
     console.log('✅ Database connected successfully');
+
+    console.log('Database connection established');
+    console.log('🔍 GOOGLE_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID ? '✅ Défini' : '❌ Manquant');
+    console.log('🔍 GOOGLE_CLIENT_SECRET:', process.env.GOOGLE_CLIENT_SECRET ? '✅ Défini' : '❌ Manquant');
+    console.log('🔍 GOOGLE_CALLBACK_URL:', process.env.GOOGLE_CALLBACK_URL);
+    configurePassport();
 
     const uploadsDir = 'uploads';
     if (!fs.existsSync(uploadsDir)) {
