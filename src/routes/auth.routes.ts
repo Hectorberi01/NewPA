@@ -12,7 +12,7 @@ const authController = new AuthController();
 const { loginWithGoogleOrAzure } = require('../services/auth.service');
 dotenv.config();
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+const FRONTEND_URL = process.env.FRONTEND_URL!;
 const validateForgotPassword = [
   body('email').isEmail().withMessage('Invalid email format'),
   handleValidationErrors
@@ -62,7 +62,7 @@ router.get('/google',
 router.get('/google/callback',
   passport.authenticate('google', {
     failureRedirect: `${FRONTEND_URL}/login?error=auth_failed`,
-    session: false // Désactiver la session car on utilise JWT
+    session: false
   }),
 
   async (req, res) => {
