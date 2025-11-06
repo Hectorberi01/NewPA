@@ -61,7 +61,7 @@ router.get('/google',
 
 router.get('/google/callback',
   passport.authenticate('google', {
-    failureRedirect: `${FRONTEND_URL}/login?error=auth_failed`,
+    failureRedirect: `https://student-project-manager.onrender.com/login?error=auth_failed`,
     session: false
   }),
 
@@ -81,10 +81,10 @@ router.get('/google/callback',
       const encodedData = Buffer.from(JSON.stringify(authResponse)).toString('base64');
 
       // Rediriger vers le frontend avec les tokens
-      res.redirect(`${FRONTEND_URL}/auth/callback?data=${encodedData}`);
+      res.redirect(`https://student-project-manager.onrender.com/auth/callback?data=${encodedData}`);
     } catch (error) {
       console.error('Error in callback:', error);
-      res.redirect(`${FRONTEND_URL}/login?error=server_error`);
+      res.redirect(`https://student-project-manager.onrender.com/login?error=server_error`);
     }
   }
 );
