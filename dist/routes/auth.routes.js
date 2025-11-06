@@ -81,24 +81,23 @@ router.get('/google', passport_1.default.authenticate('google', {
     prompt: 'consent'
 }));
 router.get('/google/callback', passport_1.default.authenticate('google', {
-    failureRedirect: `https://student-project-manager.onrender.com/login?error=auth_failed`,
+    failureRedirect: `${process.env.FRONTEND_URL}/login?error=auth_failed`,
     session: false
 }), async (req, res) => {
     try {
-        console.log('Authentication successful');
+        console.log('✅ Authentication successful');
         const authService = new auth_service_1.AuthService();
-        // L'utilisateur est dans req.user grâce à Passport
         const user = req.user;
         // Générer les tokens JWT
         const authResponse = await authService.formatAuthResponse(user);
         // Encoder les données pour les passer dans l'URL
         const encodedData = Buffer.from(JSON.stringify(authResponse)).toString('base64');
         // Rediriger vers le frontend avec les tokens
-        res.redirect(`https://student-project-manager.onrender.com/auth/callback?data=${encodedData}`);
+        res.redirect(`${process.env.FRONTEND_URL}/auth/callback?data=${encodedData}`);
     }
     catch (error) {
-        console.error('Error in callback:', error);
-        res.redirect(`https://student-project-manager.onrender.com/login?error=server_error`);
+        console.error('❌ Error in callback:', error);
+        res.redirect(`${process.env.FRONTEND_URL}/login?error=server_error`);
     }
 });
 // Routes de vérification et informations utilisateur

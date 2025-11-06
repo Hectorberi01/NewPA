@@ -9,6 +9,7 @@ const http_1 = __importDefault(require("http"));
 const fs_1 = __importDefault(require("fs"));
 const data_source_1 = require("./database/data-source");
 const app_1 = __importDefault(require("./app"));
+const passport_1 = require("./config/passport");
 dotenv_1.default.config();
 // Ensure PORT is a number to match the http.Server.listen overloads
 const PORT = process.env.PORT;
@@ -18,6 +19,11 @@ async function startServer() {
     try {
         await data_source_1.AppDataSource.initialize();
         console.log('✅ Database connected successfully');
+        console.log('Database connection established');
+        console.log('🔍 GOOGLE_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID ? '✅ Défini' : '❌ Manquant');
+        console.log('🔍 GOOGLE_CLIENT_SECRET:', process.env.GOOGLE_CLIENT_SECRET ? '✅ Défini' : '❌ Manquant');
+        console.log('🔍 GOOGLE_CALLBACK_URL:', process.env.GOOGLE_CALLBACK_URL);
+        (0, passport_1.configurePassport)();
         const uploadsDir = 'uploads';
         if (!fs_1.default.existsSync(uploadsDir)) {
             fs_1.default.mkdirSync(uploadsDir, { recursive: true });
