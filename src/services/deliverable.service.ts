@@ -180,7 +180,10 @@ export class DeliverableService {
               message = 'Aucun fichier fourni';
             } else {
               try {
-                const config = JSON.parse(rule.configuration);
+                console.log('Validating file presence with configuration:', rule.configuration);
+
+                const config = rule.configuration ? JSON.parse(rule.configuration) : {};
+
                 const result = await FileValidationService.validateFilePresence(
                   file.path,
                   config.requiredFiles || []

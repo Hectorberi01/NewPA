@@ -22,29 +22,34 @@ export class FileValidationService {
     }
   }
 
-  static async validateFilePresence(filePath: string, requiredFiles: string[]): Promise<{ valid: boolean; error?: string; missingFiles?: string[] }> {
-    try {
-      const zip = new AdmZip(filePath);
-      const zipEntries = zip.getEntries();
-      const fileNames = zipEntries.map(entry => entry.entryName);
-      
-      const missingFiles = requiredFiles.filter(file => 
-        !fileNames.some(fileName => fileName.includes(file))
-      );
-      
-      if (missingFiles.length > 0) {
-        return { 
-          valid: false, 
-          error: 'Required files are missing',
-          missingFiles 
-        };
+  static async validateFilePresence(
+      filePath: string,
+      requiredExtensions: string[]
+    ): Promise<{ valid: boolean; error?: string; missingFiles?: string[] }> {
+      try {
+        const zip = new AdmZip(filePath);
+        const zipEntries = zip.getEntries();
+        const fileNames = zipEntries.map(entry => entry.entryName);
+
+        const missingFiles = requiredExtensions.filter(ext =>
+          !fileNames.some(fileName => fileName.toLowerCase().endsWith(`.${ext.toLowerCase()}`))
+        );
+
+        if (missingFiles.length > 0) {
+          return { 
+            valid: false, 
+            error: 'Required file types are missing',
+            missingFiles
+          };
+        }
+
+        return { valid: true };
+      } catch (error) {
+        console.log('Error during file presence validation:', error);
+        return { valid: false, error: 'Could not validate file contents' };
       }
-      
-      return { valid: true };
-    } catch (error) {
-      return { valid: false, error: 'Could not validate file contents' };
-    }
-  }
+}
+
 
   static async validateFolderStructure(filePath: string, expectedStructure: string[]): Promise<{ valid: boolean; error?: string }> {
     try {

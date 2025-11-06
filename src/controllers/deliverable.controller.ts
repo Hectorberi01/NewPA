@@ -173,7 +173,7 @@ async validateDeliverable(req: Request, res: Response): Promise<void> {
       const rule = await this.deliverableService.addValidationRule(deliverableId, req.body);
       res.status(201).json(rule);
     } catch (error) {
-      res.status(500).json({ error: 'Internal Server Error' });
+      res.status(500).json({ error: error.message || 'Internal Server Error' });
     }
   }
 
