@@ -7,6 +7,7 @@ import path from "path";
 import fs from "fs/promises";
 import { AggregatorService } from './anticheat/aggregator/aggregator.service';
 import { AntiCheatService } from './anticheat/anticheat.service';
+import { downloadFromS3 } from '../utils/downloadFromS3';
 interface createDeliverableDTO {
   name: string;
   description?: string;
@@ -125,161 +126,161 @@ export class DeliverableService {
       order: { submittedAt: 'ASC' }
     });
   }
-async validateDeliverableBeforeSubmit(
-  deliverableId: number,
-  groupId: number,
-  file?: Express.Multer.File,
-  gitUrl?: string
-): Promise<any> {
-  const deliverable = await this.deliverableRepository.findOne({
-    where: { id: deliverableId },
-    relations: ['validationRules']
-  });
+  async validateDeliverableBeforeSubmit(
+    deliverableId: number,
+    groupId: number,
+    file?: Express.Multer.File,
+    gitUrl?: string
+  ): Promise<any> {
+    const deliverable = await this.deliverableRepository.findOne({
+      where: { id: deliverableId },
+      relations: ['validationRules']
+    });
 
-  if (!deliverable) throw new Error('Deliverable not found');
+    if (!deliverable) throw new Error('Deliverable not found');
 
-  const validationResults = {
-    allPassed: true,
-    rules: [] as any[]
-  };
+    const validationResults = {
+      allPassed: true,
+      rules: [] as any[]
+    };
 
-  if (deliverable.type === 'archive' && file) {
-    for (const rule of deliverable.validationRules) {
-      let passed = true;
-      let message = rule.errorMessage || 'Règle non respectée';
+    if (deliverable.type === 'archive' && file) {
+      for (const rule of deliverable.validationRules) {
+        let passed = true;
+        let message = rule.errorMessage || 'Règle non respectée';
 
-      switch (rule.type) {
-        case 'max_size': {
-          let maxSizeMB: number;
-          
-          try {
-            const config = JSON.parse(rule.configuration);
-            maxSizeMB = parseFloat(config.maxSizeMB || config);
-          } catch {
-            const match = rule.configuration.match(/(\d+(?:\.\d+)?)/);
-            maxSizeMB = match ? parseFloat(match[1]) : NaN;
-          }
-          
-          if (isNaN(maxSizeMB)) {
-            passed = false;
-            message = 'Configuration invalide pour la taille maximale';
-          } else if (file.size > maxSizeMB * 1024 * 1024) {
-            passed = false;
-            message = rule.errorMessage || `Fichier trop volumineux. Maximum: ${maxSizeMB}MB`;
-          } else {
-            message = `Taille du fichier valide (${(file.size / (1024 * 1024)).toFixed(2)}MB / ${maxSizeMB}MB)`;
-          }
-          break;
-        }
+        switch (rule.type) {
+          case 'max_size': {
+            let maxSizeMB: number;
 
-
-        case 'file_presence': {
-          if (!file) {
-            passed = false;
-            message = 'Aucun fichier fourni';
-          } else {
             try {
               const config = JSON.parse(rule.configuration);
-              const result = await FileValidationService.validateFilePresence(
-                file.path,
-                config.requiredFiles || []
-              );
-              passed = result.valid;
-              message = passed 
-                ? 'Tous les fichiers requis sont présents' 
-                : rule.errorMessage || result.error || 'Fichiers manquants';
-            } catch (error) {
-              passed = false;
-              message = 'Erreur lors de la validation des fichiers';
+              maxSizeMB = parseFloat(config.maxSizeMB || config);
+            } catch {
+              const match = rule.configuration.match(/(\d+(?:\.\d+)?)/);
+              maxSizeMB = match ? parseFloat(match[1]) : NaN;
             }
+
+            if (isNaN(maxSizeMB)) {
+              passed = false;
+              message = 'Configuration invalide pour la taille maximale';
+            } else if (file.size > maxSizeMB * 1024 * 1024) {
+              passed = false;
+              message = rule.errorMessage || `Fichier trop volumineux. Maximum: ${maxSizeMB}MB`;
+            } else {
+              message = `Taille du fichier valide (${(file.size / (1024 * 1024)).toFixed(2)}MB / ${maxSizeMB}MB)`;
+            }
+            break;
           }
-          break;
+
+
+          case 'file_presence': {
+            if (!file) {
+              passed = false;
+              message = 'Aucun fichier fourni';
+            } else {
+              try {
+                const config = JSON.parse(rule.configuration);
+                const result = await FileValidationService.validateFilePresence(
+                  file.path,
+                  config.requiredFiles || []
+                );
+                passed = result.valid;
+                message = passed
+                  ? 'Tous les fichiers requis sont présents'
+                  : rule.errorMessage || result.error || 'Fichiers manquants';
+              } catch (error) {
+                passed = false;
+                message = 'Erreur lors de la validation des fichiers';
+              }
+            }
+            break;
+          }
+
+          case 'folder_structure': {
+            if (!file) {
+              passed = false;
+              message = 'Aucun fichier fourni';
+            } else {
+              try {
+                const config = JSON.parse(rule.configuration);
+                const result = await FileValidationService.validateFolderStructure(
+                  file.path,
+                  config.expectedStructure || []
+                );
+                passed = result.valid;
+                message = passed
+                  ? 'Structure de dossiers valide'
+                  : rule.errorMessage || result.error || 'Structure invalide';
+              } catch (error) {
+                passed = false;
+                message = 'Erreur lors de la validation de la structure';
+              }
+            }
+            break;
+          }
+
+          case 'file_content': {
+            if (!file) {
+              passed = false;
+              message = 'Aucun fichier fourni';
+            } else {
+              try {
+                const config = JSON.parse(rule.configuration);
+                const result = await FileValidationService.validateFileContent(
+                  file.path,
+                  config.fileName,
+                  config.contentRegex
+                );
+                passed = result.valid;
+                message = passed
+                  ? 'Contenu du fichier valide'
+                  : rule.errorMessage || result.error || 'Contenu invalide';
+              } catch (error) {
+                passed = false;
+                message = 'Erreur lors de la validation du contenu';
+              }
+            }
+            break;
+          }
+
+          default:
+            passed = true;
+            message = 'Règle non reconnue (ignorée)';
+            break;
         }
 
-        case 'folder_structure': {
-          if (!file) {
-            passed = false;
-            message = 'Aucun fichier fourni';
-          } else {
-            try {
-              const config = JSON.parse(rule.configuration);
-              const result = await FileValidationService.validateFolderStructure(
-                file.path,
-                config.expectedStructure || []
-              );
-              passed = result.valid;
-              message = passed 
-                ? 'Structure de dossiers valide' 
-                : rule.errorMessage || result.error || 'Structure invalide';
-            } catch (error) {
-              passed = false;
-              message = 'Erreur lors de la validation de la structure';
-            }
-          }
-          break;
-        }
+        validationResults.rules.push({
+          type: rule.type,
+          passed,
+          message
+        });
 
-        case 'file_content': {
-          if (!file) {
-            passed = false;
-            message = 'Aucun fichier fourni';
-          } else {
-            try {
-              const config = JSON.parse(rule.configuration);
-              const result = await FileValidationService.validateFileContent(
-                file.path,
-                config.fileName,
-                config.contentRegex
-              );
-              passed = result.valid;
-              message = passed 
-                ? 'Contenu du fichier valide' 
-                : rule.errorMessage || result.error || 'Contenu invalide';
-            } catch (error) {
-              passed = false;
-              message = 'Erreur lors de la validation du contenu';
-            }
-          }
-          break;
-        }
-
-        default:
-          passed = true;
-          message = 'Règle non reconnue (ignorée)';
-          break;
+        if (!passed) validationResults.allPassed = false;
       }
-
-      validationResults.rules.push({
-        type: rule.type,
-        passed,
-        message
-      });
-
-      if (!passed) validationResults.allPassed = false;
     }
-  }
 
-  // Validation pour les liens Git
-  if (deliverable.type === 'git_link' && gitUrl) {
-    const gitUrlRegex = /^(https?:\/\/)?(www\.)?github\.com\/[a-zA-Z0-9-]+\/[a-zA-Z0-9-_.]+$/;
-    if (!gitUrlRegex.test(gitUrl)) {
-      validationResults.rules.push({
-        type: 'git_url',
-        passed: false,
-        message: 'URL Git invalide'
-      });
-      validationResults.allPassed = false;
-    } else {
-      validationResults.rules.push({
-        type: 'git_url',
-        passed: true,
-        message: 'URL Git valide'
-      });
+    // Validation pour les liens Git
+    if (deliverable.type === 'git_link' && gitUrl) {
+      const gitUrlRegex = /^(https?:\/\/)?(www\.)?github\.com\/[a-zA-Z0-9-]+\/[a-zA-Z0-9-_.]+$/;
+      if (!gitUrlRegex.test(gitUrl)) {
+        validationResults.rules.push({
+          type: 'git_url',
+          passed: false,
+          message: 'URL Git invalide'
+        });
+        validationResults.allPassed = false;
+      } else {
+        validationResults.rules.push({
+          type: 'git_url',
+          passed: true,
+          message: 'URL Git valide'
+        });
+      }
     }
-  }
 
-  return validationResults;
-}
+    return validationResults;
+  }
   async getDeliverablesByProject(projectId: number): Promise<Deliverable[]> {
     return await this.deliverableRepository.find({
       where: { project: { id: projectId } },
@@ -287,106 +288,126 @@ async validateDeliverableBeforeSubmit(
       order: { deadline: 'ASC' }
     });
   }
-async analyzeSimilarity(deliverableId: number): Promise<any> {
-  try {
-    const submissions = await this.submissionRepository.find({
-      where: { deliverable: { id: deliverableId } },
-      relations: ['group']
-    });
+  async analyzeSimilarity(deliverableId: number): Promise<any> {
+    try {
+      const submissions = await this.submissionRepository.find({
+        where: { deliverable: { id: deliverableId } },
+        relations: ['group']
+      });
 
-    console.log(`[analyzeSimilarity] Found ${submissions.length} submissions`);
+      console.log(`[analyzeSimilarity] Found ${submissions.length} submissions`);
 
-    if (!submissions.length) {
-      return { 
-        matches: [], 
-        aggregates: [],
-        message: 'Aucune soumission trouvée'
+      if (!submissions.length) {
+        return {
+          matches: [],
+          aggregates: [],
+          message: 'Aucune soumission trouvée'
+        };
+      }
+
+      const anti = new AntiCheatService(AppDataSource);
+      const processResults = [];
+
+      for (const s of submissions) {
+        if (s.filePath) {
+          try {
+            console.log(`[analyzeSimilarity] Downloading ${s.filePath}`);
+            const localPath = await downloadFromS3(s.filePath);
+
+            const result = await anti.onSubmissionImported(s.id, localPath);
+
+            // supprimer le fichier temporaire après analyse
+            //fs.unlink(localPath, () => { });
+
+            processResults.push({ submissionId: s.id, success: true, result });
+          } catch (error: any) {
+            console.error(`[analyzeSimilarity] Error processing submission ${s.id}:`, error.message);
+            processResults.push({
+              submissionId: s.id,
+              success: false,
+              error: error.message
+            });
+          }
+        }
+        // if (s.filePath) {
+        //   try {
+        //     console.log(`[analyzeSimilarity] Processing submission ${s.id}: ${s.filePath}`);
+        //     const result = await anti.onSubmissionImported(s.id, s.filePath);
+        //     processResults.push({ submissionId: s.id, success: true, result });
+        //   } catch (error: any) {
+        //     console.error(`[analyzeSimilarity] Error processing submission ${s.id}:`, error.message);
+        //     processResults.push({ 
+        //       submissionId: s.id, 
+        //       success: false, 
+        //       error: error.message 
+        //     });
+        //   }
+        // } else {
+        //   console.warn(`[analyzeSimilarity] Submission ${s.id} has no file`);
+        // }
+      }
+
+      const agg = new AggregatorService(AppDataSource);
+      const topPerSubmission = await Promise.all(
+        submissions.map(async (s) => {
+          try {
+            return await agg.findTopMatches(s.id, 10);
+          } catch (error) {
+            console.error(`[analyzeSimilarity] Error finding matches for ${s.id}:`, error);
+            return [];
+          }
+        })
+      );
+
+      const withAggregates = await this.submissionRepository.find({
+        where: { deliverable: { id: deliverableId } },
+        select: ['id', 'textScore', 'astScore', 'similarityScore']
+      });
+
+      return {
+        matches: topPerSubmission.flat(),
+        aggregates: withAggregates,
+        processResults, // Pour déboguer
+        summary: {
+          totalSubmissions: submissions.length,
+          processed: processResults.filter(r => r.success).length,
+          failed: processResults.filter(r => !r.success).length
+        }
       };
+
+    } catch (error: any) {
+      console.error('[analyzeSimilarity] Global error:', error);
+      throw new Error(`Analyse de similarité échouée: ${error.message}`);
+    }
+  }
+  async getGroupSubmission(deliverableId: number, groupId: number): Promise<DeliverableSubmission | null> {
+    if (isNaN(deliverableId) || isNaN(groupId) || deliverableId <= 0 || groupId <= 0) {
+      throw new Error('Invalid deliverable or group ID');
     }
 
-    const anti = new AntiCheatService(AppDataSource);
-    const processResults = [];
-    
-    for (const s of submissions) {
-      if (s.filePath) {
-        try {
-          console.log(`[analyzeSimilarity] Processing submission ${s.id}: ${s.filePath}`);
-          const result = await anti.onSubmissionImported(s.id, s.filePath);
-          processResults.push({ submissionId: s.id, success: true, result });
-        } catch (error: any) {
-          console.error(`[analyzeSimilarity] Error processing submission ${s.id}:`, error.message);
-          processResults.push({ 
-            submissionId: s.id, 
-            success: false, 
-            error: error.message 
-          });
+    try {
+      const submission = await this.submissionRepository.findOne({
+        where: {
+          deliverable: { id: deliverableId },
+          group: { id: groupId }
+        },
+        relations: [
+          'group',
+          'group.members',
+          'deliverable',
+          'deliverable.validationRules'
+        ],
+        order: {
+          submittedAt: 'DESC' // Prendre la dernière soumission
         }
-      } else {
-        console.warn(`[analyzeSimilarity] Submission ${s.id} has no file`);
-      }
+      });
+
+      return submission;
+    } catch (error) {
+      console.error('Error fetching group submission:', error);
+      throw new Error('Failed to fetch submission');
     }
-
-    const agg = new AggregatorService(AppDataSource);
-    const topPerSubmission = await Promise.all(
-      submissions.map(async (s) => {
-        try {
-          return await agg.findTopMatches(s.id, 10);
-        } catch (error) {
-          console.error(`[analyzeSimilarity] Error finding matches for ${s.id}:`, error);
-          return [];
-        }
-      })
-    );
-
-    const withAggregates = await this.submissionRepository.find({
-      where: { deliverable: { id: deliverableId } },
-      select: ['id', 'textScore', 'astScore', 'similarityScore']
-    });
-
-    return {
-      matches: topPerSubmission.flat(),
-      aggregates: withAggregates,
-      processResults, // Pour déboguer
-      summary: {
-        totalSubmissions: submissions.length,
-        processed: processResults.filter(r => r.success).length,
-        failed: processResults.filter(r => !r.success).length
-      }
-    };
-
-  } catch (error: any) {
-    console.error('[analyzeSimilarity] Global error:', error);
-    throw new Error(`Analyse de similarité échouée: ${error.message}`);
   }
-}
-async getGroupSubmission(deliverableId: number, groupId: number): Promise<DeliverableSubmission | null> {
-  if (isNaN(deliverableId) || isNaN(groupId) || deliverableId <= 0 || groupId <= 0) {
-    throw new Error('Invalid deliverable or group ID');
-  }
-
-  try {
-    const submission = await this.submissionRepository.findOne({
-      where: { 
-        deliverable: { id: deliverableId },
-        group: { id: groupId }
-      },
-      relations: [
-        'group', 
-        'group.members', 
-        'deliverable',
-        'deliverable.validationRules'
-      ],
-      order: {
-        submittedAt: 'DESC' // Prendre la dernière soumission
-      }
-    });
-
-    return submission;
-  } catch (error) {
-    console.error('Error fetching group submission:', error);
-    throw new Error('Failed to fetch submission');
-  }
-}
 
 
 
@@ -553,21 +574,21 @@ async getGroupSubmission(deliverableId: number, groupId: number): Promise<Delive
   }
 
   async downloadSubmission(submissionId: number) {
-  const submission = await this.submissionRepository.findOne({
-    where: { id: submissionId },
-  });
-  if (!submission || !submission.filePath)
-    throw new Error("No file associated with this submission");
+    const submission = await this.submissionRepository.findOne({
+      where: { id: submissionId },
+    });
+    if (!submission || !submission.filePath)
+      throw new Error("No file associated with this submission");
 
-  const fileUrl = submission.filePath;
-  const bucketName = process.env.AWS_S3_BUCKET!;
+    const fileUrl = submission.filePath;
+    const bucketName = process.env.AWS_S3_BUCKET!;
 
-  // ✅ Corrigé : retire le "/" initial si présent
-  const pathname = new URL(fileUrl).pathname;
-  const key = decodeURIComponent(pathname.replace(/^\/+/, "").replace(`${bucketName}/`, ""));
+    // ✅ Corrigé : retire le "/" initial si présent
+    const pathname = new URL(fileUrl).pathname;
+    const key = decodeURIComponent(pathname.replace(/^\/+/, "").replace(`${bucketName}/`, ""));
 
-  console.log("✅ S3 key used:", key);
-  return { bucketName, key };
-}
+    console.log("✅ S3 key used:", key);
+    return { bucketName, key };
+  }
 
 }
