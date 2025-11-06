@@ -61,13 +61,13 @@ router.get('/google',
 
 router.get('/google/callback',
   passport.authenticate('google', {
-    failureRedirect: `http://${FRONTEND_URL}/login?error=auth_failed`,
+    failureRedirect: `https://${FRONTEND_URL}/login?error=auth_failed`,
     session: false // Désactiver la session car on utilise JWT
   }),
 
   async (req, res) => {
     try {
-      console.log('✅ Authentication successful');
+      console.log('Authentication successful');
 
       const authService = new AuthService();
 
@@ -81,10 +81,10 @@ router.get('/google/callback',
       const encodedData = Buffer.from(JSON.stringify(authResponse)).toString('base64');
 
       // Rediriger vers le frontend avec les tokens
-      res.redirect(`http://${FRONTEND_URL}/auth/callback?data=${encodedData}`);
+      res.redirect(`https://${FRONTEND_URL}/auth/callback?data=${encodedData}`);
     } catch (error) {
-      console.error('❌ Error in callback:', error);
-      res.redirect(`http://${FRONTEND_URL}/login?error=server_error`);
+      console.error('Error in callback:', error);
+      res.redirect(`https://${FRONTEND_URL}/login?error=server_error`);
     }
   }
 );
