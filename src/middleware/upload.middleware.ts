@@ -58,7 +58,6 @@ export const uploadMiddleware = multer({
     s3: s3Client,
     bucket: process.env.AWS_S3_BUCKET!,
     contentType: multerS3.AUTO_CONTENT_TYPE,
-    acl: "public-read", // ou "private" si tu veux restreindre l’accès
     key: (req, file, cb) => {
       const ext = path.extname(file.originalname).toLowerCase();
       if (!allowedTypes.includes(ext)) {
