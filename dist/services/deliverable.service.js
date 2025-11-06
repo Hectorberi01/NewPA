@@ -1,17 +1,13 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DeliverableService = void 0;
 const data_source_1 = require("../database/data-source");
 const Entities_1 = require("../entities/Entities");
 const file_validation_service_1 = require("../utils/file-validation.service");
 const email_service_1 = require("../utils/email.service");
-const path_1 = __importDefault(require("path"));
-const promises_1 = __importDefault(require("fs/promises"));
 const aggregator_service_1 = require("./anticheat/aggregator/aggregator.service");
 const anticheat_service_1 = require("./anticheat/anticheat.service");
+const downloadFromS3_1 = require("../utils/downloadFromS3");
 class DeliverableService {
     constructor() {
         this.deliverableRepository = data_source_1.AppDataSource.getRepository(Entities_1.Deliverable);
@@ -259,8 +255,11 @@ class DeliverableService {
             for (const s of submissions) {
                 if (s.filePath) {
                     try {
-                        console.log(`[analyzeSimilarity] Processing submission ${s.id}: ${s.filePath}`);
-                        const result = await anti.onSubmissionImported(s.id, s.filePath);
+                        console.log(`[analyzeSimilarity] Downloading ${s.filePath}`);
+                        const localPath = await (0, downloadFromS3_1.downloadFromS3)(s.filePath);
+                        const result = await anti.onSubmissionImported(s.id, localPath);
+                        // supprimer le fichier temporaire après analyse
+                        //fs.unlink(localPath, () => { });
                         processResults.push({ submissionId: s.id, success: true, result });
                     }
                     catch (error) {
@@ -272,9 +271,22 @@ class DeliverableService {
                         });
                     }
                 }
-                else {
-                    console.warn(`[analyzeSimilarity] Submission ${s.id} has no file`);
-                }
+                // if (s.filePath) {
+                //   try {
+                //     console.log(`[analyzeSimilarity] Processing submission ${s.id}: ${s.filePath}`);
+                //     const result = await anti.onSubmissionImported(s.id, s.filePath);
+                //     processResults.push({ submissionId: s.id, success: true, result });
+                //   } catch (error: any) {
+                //     console.error(`[analyzeSimilarity] Error processing submission ${s.id}:`, error.message);
+                //     processResults.push({ 
+                //       submissionId: s.id, 
+                //       success: false, 
+                //       error: error.message 
+                //     });
+                //   }
+                // } else {
+                //   console.warn(`[analyzeSimilarity] Submission ${s.id} has no file`);
+                // }
             }
             const agg = new aggregator_service_1.AggregatorService(data_source_1.AppDataSource);
             const topPerSubmission = await Promise.all(submissions.map(async (s) => {
@@ -378,36 +390,32 @@ class DeliverableService {
         }
         await Promise.allSettled(emailPromises);
     }
-    async downloadSubmission(submissionId) {
-        const submission = await this.submissionRepository.findOne({
-            where: { id: submissionId },
-            relations: ['deliverable', 'group', 'group.members'],
-        });
-        if (!submission)
-            throw new Error('Submission not found');
-        if (!submission.filePath)
-            throw new Error('No file associated with this submission');
-        const UPLOAD_DIR = path_1.default.resolve(process.cwd(), "uploads");
-        const filenameOnDisk = path_1.default.basename(submission.filePath);
-        const fullPath = path_1.default.join(UPLOAD_DIR, filenameOnDisk);
-        // Vérifie que le fichier est bien dans le dossier uploads
-        const resolved = path_1.default.resolve(fullPath);
-        if (!resolved.startsWith(UPLOAD_DIR)) {
-            throw new Error("Invalid file path");
-        }
-        // Vérifier existence
-        try {
-            const st = await promises_1.default.stat(resolved);
-            if (!st.isFile())
-                throw new Error("File not found");
-        }
-        catch (err) {
-            throw new Error("File not found");
-        }
-        // Nom de téléchargement : si tu stockes originalName dans la DB, utilise-le, sinon basename
-        const downloadName = filenameOnDisk;
-        return { filePath: resolved, filename: downloadName };
-    }
+    // async downloadSubmission(submissionId: number): Promise<{ filePath: string, filename: string }> {
+    //   const submission = await this.submissionRepository.findOne({
+    //     where: { id: submissionId },
+    //     relations: ['deliverable', 'group', 'group.members'],
+    //   });
+    //   if (!submission) throw new Error('Submission not found');
+    //   if (!submission.filePath) throw new Error('No file associated with this submission');
+    //   const UPLOAD_DIR = path.resolve(process.cwd(), "uploads");
+    //   const filenameOnDisk = path.basename(submission.filePath);
+    //   const fullPath = path.join(UPLOAD_DIR, filenameOnDisk);
+    //   // Vérifie que le fichier est bien dans le dossier uploads
+    //   const resolved = path.resolve(fullPath);
+    //   if (!resolved.startsWith(UPLOAD_DIR)) {
+    //     throw new Error("Invalid file path");
+    //   }
+    //   // Vérifier existence
+    //   try {
+    //     const st = await fs.stat(resolved);
+    //     if (!st.isFile()) throw new Error("File not found");
+    //   } catch (err) {
+    //     throw new Error("File not found");
+    //   }
+    //   // Nom de téléchargement : si tu stockes originalName dans la DB, utilise-le, sinon basename
+    //   const downloadName = filenameOnDisk;
+    //   return { filePath: resolved, filename: downloadName };
+    // }
     async validateSubmission(deliverable, submissionData) {
         const results = {};
         if (!deliverable.validationRules || deliverable.validationRules.length === 0) {
@@ -449,6 +457,20 @@ class DeliverableService {
             }
         }
         return results;
+    }
+    async downloadSubmission(submissionId) {
+        const submission = await this.submissionRepository.findOne({
+            where: { id: submissionId },
+        });
+        if (!submission || !submission.filePath)
+            throw new Error("No file associated with this submission");
+        const fileUrl = submission.filePath;
+        const bucketName = process.env.AWS_S3_BUCKET;
+        // ✅ Corrigé : retire le "/" initial si présent
+        const pathname = new URL(fileUrl).pathname;
+        const key = decodeURIComponent(pathname.replace(/^\/+/, "").replace(`${bucketName}/`, ""));
+        console.log("✅ S3 key used:", key);
+        return { bucketName, key };
     }
 }
 exports.DeliverableService = DeliverableService;

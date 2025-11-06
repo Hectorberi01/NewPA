@@ -49,7 +49,7 @@ const router = (0, express_1.Router)();
 const authController = new auth_controller_1.AuthController();
 const { loginWithGoogleOrAzure } = require('../services/auth.service');
 dotenv.config();
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+const FRONTEND_URL = process.env.FRONTEND_URL;
 const validateForgotPassword = [
     body('email').isEmail().withMessage('Invalid email format'),
     validation_middleware_1.handleValidationErrors
@@ -81,11 +81,11 @@ router.get('/google', passport_1.default.authenticate('google', {
     prompt: 'consent'
 }));
 router.get('/google/callback', passport_1.default.authenticate('google', {
-    failureRedirect: `http://${FRONTEND_URL}/login?error=auth_failed`,
-    session: false // Désactiver la session car on utilise JWT
+    failureRedirect: `https://student-project-manager.onrender.com/login?error=auth_failed`,
+    session: false
 }), async (req, res) => {
     try {
-        console.log('✅ Authentication successful');
+        console.log('Authentication successful');
         const authService = new auth_service_1.AuthService();
         // L'utilisateur est dans req.user grâce à Passport
         const user = req.user;
@@ -94,11 +94,11 @@ router.get('/google/callback', passport_1.default.authenticate('google', {
         // Encoder les données pour les passer dans l'URL
         const encodedData = Buffer.from(JSON.stringify(authResponse)).toString('base64');
         // Rediriger vers le frontend avec les tokens
-        res.redirect(`http://${FRONTEND_URL}/auth/callback?data=${encodedData}`);
+        res.redirect(`https://student-project-manager.onrender.com/auth/callback?data=${encodedData}`);
     }
     catch (error) {
-        console.error('❌ Error in callback:', error);
-        res.redirect(`http://${FRONTEND_URL}/login?error=server_error`);
+        console.error('Error in callback:', error);
+        res.redirect(`https://student-project-manager.onrender.com/login?error=server_error`);
     }
 });
 // Routes de vérification et informations utilisateur

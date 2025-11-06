@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DeliverableController = void 0;
 const deliverable_service_1 = require("../services/deliverable.service");
+const client_s3_1 = require("@aws-sdk/client-s3");
+const aws_config_1 = require("../config/aws.config");
 class DeliverableController {
     constructor() {
         this.deliverableService = new deliverable_service_1.DeliverableService();
@@ -199,7 +201,9 @@ class DeliverableController {
             const { groupId, gitUrl } = req.body;
             let submissionData = { gitUrl };
             if (req.file) {
-                submissionData.filePath = req.file.path;
+                //submissionData.filePath = req.file.path;
+                submissionData.filePath = req.file.location;
+                submissionData.fileKey = req.file.key;
             }
             const submission = await this.deliverableService.submitDeliverable(deliverableId, parseInt(groupId), submissionData);
             res.status(201).json(submission);
@@ -387,36 +391,25 @@ class DeliverableController {
     async download(req, res, next) {
         try {
             const submissionId = Number(req.params.id);
-            if (!Number.isFinite(submissionId))
+            if (!Number.isFinite(submissionId)) {
                 return res.status(400).json({ message: "Invalid id" });
-            const { filePath, filename } = await this.deliverableService.downloadSubmission(submissionId);
-            // Option A: utiliser res.download (set Content-Type, Content-Disposition automatiquement)
-            return res.download(filePath, filename, (err) => {
-                if (err) {
-                    console.error("Error sending file:", err);
-                    if (!res.headersSent)
-                        res.status(500).json({ message: "Error sending file" });
-                }
+            }
+            const { bucketName, key } = await this.deliverableService.downloadSubmission(submissionId);
+            const command = new client_s3_1.GetObjectCommand({
+                Bucket: bucketName,
+                Key: key,
             });
-            // Option B: stream manuel (décommenter si tu préfères)
-            /*
-            res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(filename)}"`);
-            const stream = fs.createReadStream(filePath);
+            const data = await aws_config_1.s3Client.send(command);
+            // Définir les bons headers
+            res.setHeader("Content-Type", data.ContentType || "application/octet-stream");
+            res.setHeader("Content-Disposition", `attachment; filename="${key.split("/").pop()}"`);
+            // Stream du contenu S3 vers la réponse HTTP
+            const stream = data.Body;
             stream.pipe(res);
-            stream.on("error", (e) => {
-              console.error(e);
-              if (!res.headersSent) res.status(500).end();
-            });
-            */
         }
-        catch (err) {
-            if (err.message === "Submission not found")
-                return res.status(404).json({ message: err.message });
-            if (err.message === "No file associated with this submission")
-                return res.status(404).json({ message: err.message });
-            if (err.message === "File not found")
-                return res.status(404).json({ message: "File not found on disk" });
-            next(err);
+        catch (error) {
+            console.error("Error downloading file:", error);
+            res.status(500).json({ message: "Error downloading file" });
         }
     }
 }
