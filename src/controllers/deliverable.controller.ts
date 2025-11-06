@@ -219,7 +219,7 @@ async validateDeliverable(req: Request, res: Response): Promise<void> {
       
       if (req.file) {
         //submissionData.filePath = req.file.path;
-        submissionData.fileUrl = (req.file as any).location;
+        submissionData.filePath = (req.file as any).location;
         submissionData.fileKey = (req.file as any).key;
       }
 

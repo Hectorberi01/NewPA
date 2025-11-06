@@ -53,6 +53,7 @@ const allowedTypes = [
   ".bmp", ".svg"
 ];
 
+
 export const uploadMiddleware = multer({
   storage: multerS3({
     s3: s3Client,
@@ -68,5 +69,5 @@ export const uploadMiddleware = multer({
       cb(null, fileName);
     },
   }),
-  limits: { fileSize: 150 * 1024 * 1024 }, // 150 Mo
+  limits: { fileSize: 150 * 1024 * 1024 },
 });
